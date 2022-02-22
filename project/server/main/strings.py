@@ -11,6 +11,11 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
+def remove_parenthesis(a_string):
+     return re.sub(r"\([^()]*\)", "", a_string)
+    
+def str_footprint(s):
+    return ''.join(sorted(s.split(' ')))
 
 def remove_punction(s: str) -> str:
     for p in string.punctuation:
@@ -37,18 +42,18 @@ normalizer = Sequence([BertNormalizer(clean_text=True,
         lowercase=True), Strip()])
 pre_tokenizer = pre_tokenizers.Sequence([Whitespace()])
 
-def normalize(x, min_length = 0):
+
+def normalize(x, remove_space = True, min_length = 0):
+    if not isinstance(x, str):
+        return ''
     normalized = normalizer.normalize_str(x)
     normalized = normalized.replace('\n', ' ')
     normalized = re.sub(' +', ' ', normalized)
+    normalized = remove_punction(normalized)
     normalized = " ".join([e[0] for e in pre_tokenizer.pre_tokenize_str(normalized) if len(e[0]) > min_length])
-    return normalized.strip().replace(' ', '')
-
-#def normalize(x: str) -> str:
-#    y = normalizer.normalize_str(delete_punct(x))
-#    y = y.replace('\n', ' ')
-#    return re.sub(' +', ' ', y).strip()
-
+    if remove_space:
+        normalized = normalized.strip().replace(' ', '')
+    return normalized
 
 def get_words(x):
     if isinstance(x, str):
