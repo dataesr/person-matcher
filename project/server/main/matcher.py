@@ -44,18 +44,21 @@ def prepare_publications(publications):
     for p in publications:
         new_elt = {'id': p['title_first_author']}
 
-        new_elt['nb_authors'] = len(p.get('authors', []))
+        authors = p.get('authors', [])
+        if not isinstance(authors, list):
+            authors = []
+        new_elt['nb_authors'] = len(authors)
         new_elt['authors'] = []
 
         entity_linked = []
-        for a in p.get('authors', []):
+        for a in authors:
             author_key = None
             current_author = {}
-            if a.get('last_name') and a.get('first_name'):
+            if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):
                 author_key = normalize(a.get('first_name'), remove_space=True)[0]+normalize(a.get('last_name'), remove_space=True)
                 current_author['last_name'] = a['last_name']
                 current_author['first_name'] = a['first_name']
-            elif a.get('full_name'):
+            elif normalize(a.get('full_name'), remove_space=True):
                 author_key = normalize(a.get('full_name'), remove_space=True)
                 current_author['full_name'] = a['full_name']
 
@@ -64,9 +67,11 @@ def prepare_publications(publications):
                 entity_linked.append(author_key)
                 author_keys.append(author_key)
 
-            if a.get('id'):
-                entity_linked.append(a['id'])
-                current_author['id'] = a['id']
+            for f in ['idref', 'id_hal_s', 'orcid']:
+                if a.get(f):
+                    entity_linked.append(a[f])
+                if a.get('idref'):
+                    current_author['id'] = a['idref']
             new_elt['authors'].append(current_author)
 
         
