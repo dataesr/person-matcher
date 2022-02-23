@@ -14,6 +14,21 @@ logger = get_logger(__name__)
 def home():
     return render_template("main/home.html")
 
+@main_blueprint.route("/match2", methods=["POST"])
+def run_task_match2():
+    args = request.get_json(force=True)
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue("person-matcher", default_timeout=216000)
+        task = q.enqueue(create_task_match, args)
+    response_object = {
+        "status": "success",
+        "data": {
+            "task_id": task.get_id()
+        }
+    }
+    return jsonify(response_object), 202
+
+
 @main_blueprint.route("/match", methods=["POST"])
 def run_task_match():
     args = request.get_json(force=True)
