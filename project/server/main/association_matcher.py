@@ -109,7 +109,7 @@ def association_match(publis, input_author_key):
             if len(clusters)>1:
                 matching_ids = [c for c in clusters if 'internal' not in str(c)]
                 if len(matching_ids) == 1:
-                    merge_clusters(clusters, matching_ids[0])
+                    merge_clusters(clusters, matching_ids[0], entity_to_cluster, cluster_to_entities)
                 else:
                     pass
             if clusters:
