@@ -27,12 +27,15 @@ def pre_process_publications(args):
 
     df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr_full.jsonl', lines=True, chunksize=25000)
     author_keys = []
+    ix = 0
     for df in df_all:
+        logger.debug(f'reading {ix} chunks of publications')
         publications = df.to_dict(orient='records')
         prepared = prepare_publications(publications)
         save_to_mongo(prepared['relevant'])
         author_keys += prepared['author_keys']
         author_keys = list(set(author_keys))
+        ix += 1
     logger.debug(f'{len(author_keys)} author_keys detected')
     json.dump(author_keys, open(f'{MOUNTED_VOLUME}/author_keys.json', 'w'))
     #return author_keys
@@ -42,11 +45,30 @@ def prepare_publications(publications):
     author_keys = []
     # keeping and enriching only with relevant info for person matching
     for p in publications:
-        new_elt = {'id': p['title_first_author']}
+        new_elt = {}
+        if 'datasource' in p:
+            new_elt['datasource'] = p['datasource']
+        else:
+            logger.debug(f'missing datasource !! in {p}')
+
+        for f in ['id', 'doi', 'nnt_id', 'title_first_author']:
+            if f in p:
+                new_elt['id'] = p[f]
+                break
+
+        if new_elt.get('id') is None:
+            logger.debug(f'no id for {p}')
+            continue
 
         authors = p.get('authors', [])
         if not isinstance(authors, list):
             authors = []
+
+        if not authors:
+            # no authors to identify
+            logger.debug(f"no authors for {new_elt['id']}")
+            continue
+
         new_elt['nb_authors'] = len(authors)
         new_elt['authors'] = []
 
@@ -69,9 +91,12 @@ def prepare_publications(publications):
 
             for f in ['idref', 'id_hal_s', 'orcid']:
                 if a.get(f):
-                    entity_linked.append(a[f])
+                    current_id = f+str(a[f])
+                    if f == 'orcid':
+                        current_id = normalize(current_id, remove_space=True)
+                    entity_linked.append(current_id)
                 if a.get('idref'):
-                    current_author['id'] = a['idref']
+                    current_author['id'] = f"idref{a['idref']}"
             new_elt['authors'].append(current_author)
 
         
@@ -87,7 +112,7 @@ def prepare_publications(publications):
             for elt in elts:
                 entity_linked.append(normalize(elt, remove_space=True))
 
-        entity_linked = list(set(entity_linked))
+        entity_linked = [e for e in list(set(entity_linked)) if e]
         new_elt['entity_linked'] = entity_linked
         relevant_infos.append(new_elt)
     return {'relevant': relevant_infos, 'author_keys': author_keys}
