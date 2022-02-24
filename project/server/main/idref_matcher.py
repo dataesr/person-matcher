@@ -111,12 +111,12 @@ def analyze_doc(doc, first_name_normalized, last_name_normalized, full_name_norm
     
     if first_name_normalized and last_name_normalized:
         if bestprenom_long and match_prenom and match_nom and match_naissance:
-            return {'id': idref, 'method': 'last_name/first_name/birth_date'}
+            return {'id': f'idref{idref}', 'method': 'last_name/first_name/birth_date'}
         if bestprenom_long and len(first_name_normalized) < 3 and match_prenom_initiale and match_nom and match_naissance:
-            return {'id': idref, 'method': 'last_name/initial/birth_date'}
+            return {'id': f'idref{idref}', 'method': 'last_name/initial/birth_date'}
     elif full_name_normalized:
         if bestprenom_long and match_fullname and match_naissance:
-            return {'id': idref, 'method': 'full_name/birth_date'}
+            return {'id': f'idref{idref}', 'method': 'full_name/birth_date'}
         
     return 
     
