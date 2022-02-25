@@ -117,6 +117,9 @@ def association_match(publis, input_author_key):
             else:
                 p['cluster'] = None
 
+    for p in publis:
+        if p['cluster'] and 'idref' in p['cluster'] and ';' not in p['cluster']:
+            p['person_id'] = {'id': p['cluster'], 'method': 'association'}
     logger.debug(publis)
     return publis
 

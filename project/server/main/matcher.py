@@ -17,6 +17,13 @@ def get_publications_from_author_key(author_key):
     mycoll = mydb['person_matcher_input']
     return list(mycoll.find({'authors.author_key': author_key}))
 
+def match_all(args):
+    if args.get('preprocess', True):
+        pre_process_publications(args)
+    author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
+    for author_key in author_keys:
+        publications = get_publications_from_author_key(author_key)
+        match(publications, author_key)
 
 def pre_process_publications(args):
     logger.debug('dropping collection person_matcher_input')
@@ -32,7 +39,7 @@ def pre_process_publications(args):
         logger.debug(f'reading {ix} chunks of publications')
         publications = df.to_dict(orient='records')
         prepared = prepare_publications(publications)
-        save_to_mongo(prepared['relevant'])
+        save_to_mongo_preprocessed(prepared['relevant'])
         author_keys += prepared['author_keys']
         author_keys = list(set(author_keys))
         ix += 1
@@ -117,7 +124,7 @@ def prepare_publications(publications):
         relevant_infos.append(new_elt)
     return {'relevant': relevant_infos, 'author_keys': author_keys}
 
-def save_to_mongo(relevant_infos):
+def save_to_mongo_preprocessed(relevant_infos):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     output_json = f'{MOUNTED_VOLUME}person-matcher-current.jsonl'
@@ -130,6 +137,24 @@ def save_to_mongo(relevant_infos):
     logger.debug(f'Checking indexes on collection {collection_name}')
     mycol = mydb[collection_name]
     mycol.create_index('authors.author_key')
+    logger.debug(f'Deleting {output_json}')
+    os.remove(output_json)
+
+def save_to_mongo_results(results, author_key):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    output_json = f'{MOUNTED_VOLUME}{author_key}.jsonl'
+    pd.DataFrame(results).to_json(output_json, lines=True, orient='records')
+    collection_name = 'person_matcher_output'
+    mongoimport = f'mongoimport --numInsertionWorkers 2 --uri mongodb://mongo:27017/scanr --file {output_json}' \
+                  f' --collection {collection_name}'
+    logger.debug(f'{mongoimport}')
+    os.system(mongoimport)
+    logger.debug(f'Checking indexes on collection {collection_name}')
+    mycol = mydb[collection_name]
+    mycol.create_index('publication_id')
+    mycol.create_index('author_key')
+    mycol.create_index('person_id')
     logger.debug(f'Deleting {output_json}')
     os.remove(output_json)
 
@@ -147,7 +172,7 @@ def match(publications, author_key):
     missing_ids = 0
     elements_to_match = {}
     for p in publications:
-        if p.get('cluster') is None or 'internal' in p.get('cluster'):
+        if p.get('person_id') is None:
             missing_ids += 1
             for a in p.get('authors', []):
                 if a.get('author_key') == author_key:
@@ -169,14 +194,25 @@ def match(publications, author_key):
     logger.debug(f'{elements_to_match}')
     
     for p in publications:
-        if p.get('cluster') is None or 'internal' in p.get('cluster'):
+        if p.get('person_id') is None:
             for a in p.get('authors', []):
                 if a.get('author_key') == author_key:
                     elt_key = f"{normalize(a.get('first_name'))};;;{normalize(a.get('last_name'))};;;{normalize(a.get('full_name'))}"
                     logger.debug(elt_key)
                     if elements_to_match[elt_key]['idref']:
-                        p['cluster'] = elements_to_match[elt_key]['idref']
-    # todo
-    # save results id / author_key / idref
+                        p['person_id'] = elements_to_match[elt_key]['idref']
+
+    # TODO : n'ajouter que les match qui ne sont pas déjà en base !
+    results = []
+    for p in publications:
+        if p.get('person_id'):
+            results.append({
+                'publication_id': p['id'],
+                'author_key': author_key,
+                'person_id': p['person_id']['id'],
+                'person_id_match_method': p['person_id']['method']
+                })
+    save_to_mongo_results(results, author_key)
+
     return publications
         
