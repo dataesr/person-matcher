@@ -58,5 +58,5 @@ def upload_object(container: str, source: str, target:str) -> str:
 @retry(delay=2, tries=50)
 def download_object(container: str, filename: str, out: str) -> None:
     logger.debug(f'Downloading {filename} from {container} to {out}')
-    cmd = init_cmd + f' download {container} {filename} -o {out}'
+    cmd = init_cmd + f' download {container} {filename} -o {out} --skip-identical'
     os.system(cmd)

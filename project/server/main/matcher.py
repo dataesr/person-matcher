@@ -2,6 +2,7 @@ from project.server.main.association_matcher import association_match
 from project.server.main.idref_matcher import name_idref_match
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
+from project.server.main.utils_swift import download_object
 
 import os
 import json
@@ -11,19 +12,57 @@ import pandas as pd
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
+def to_jsonl(input_list, output_file, mode = 'a'):
+    with open(output_file, mode) as outfile:
+        for entry in input_list:
+            json.dump(entry, outfile)
+            outfile.write('\n')
+
+def get_manual_match():
+    download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
+    publi_author_dict = {}
+    infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
+    for a in infos:
+        author_key = None
+        if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):
+            author_key = normalize(a.get('first_name'), remove_space=True)[0]+normalize(a.get('last_name'), remove_space=True)
+        elif normalize(a.get('full_name'), remove_space=True):
+            author_key = normalize(a.get('full_name'), remove_space=True)
+        publi_id = a.get('publi_id')
+        person_id = a.get('person_id')
+        if author_key and publi_id and person_id:
+            publi_author_dict[f'{publi_id.strip()};{author_key}'] = person_id.strip()
+    return publi_author_dict
+
+
 def get_publications_from_author_key(author_key):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     mycoll = mydb['person_matcher_input']
     return list(mycoll.find({'authors.author_key': author_key}))
 
+def get_matches_for_publication(publi_ids):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'person_matcher_output'
+    mycoll = mydb[collection_name]
+    res = list(mycoll.find({ 'publication_id' : { '$in': publi_ids } }))
+    data = {}
+    for r in res:
+        publi_id = r.get('publication_id')
+        author_key = r.get('author_key')
+        person_id = r.get('person_id')
+        if publi_id and author_key and person_id:
+            data[f'{publi_id};{author_key}'] = person_id
+    return data
+
 def match_all(args):
     if args.get('preprocess', True):
         pre_process_publications(args)
     author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
     for author_key in author_keys:
-        publications = get_publications_from_author_key(author_key)
-        match(publications, author_key)
+        match(author_key)
+    post_process_publications()
 
 def pre_process_publications(args):
     logger.debug('dropping collection person_matcher_input')
@@ -32,22 +71,53 @@ def pre_process_publications(args):
     mycoll = mydb['person_matcher_input']
     mycoll.drop()
 
+    manuel_matches = get_manual_match()
+
     df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr_full.jsonl', lines=True, chunksize=25000)
     author_keys = []
     ix = 0
     for df in df_all:
         logger.debug(f'reading {ix} chunks of publications')
         publications = df.to_dict(orient='records')
-        prepared = prepare_publications(publications)
+        prepared = prepare_publications(publications, manuel_matches)
         save_to_mongo_preprocessed(prepared['relevant'])
         author_keys += prepared['author_keys']
         author_keys = list(set(author_keys))
         ix += 1
     logger.debug(f'{len(author_keys)} author_keys detected')
     json.dump(author_keys, open(f'{MOUNTED_VOLUME}/author_keys.json', 'w'))
-    #return author_keys
 
-def prepare_publications(publications):
+def post_process_publications():
+    logger.debug('applying person matches to publications')
+    final_output = f'{MOUNTED_VOLUME}/test-scanr_full_person.jsonl'
+    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr_full.jsonl', lines=True, chunksize=5000)
+    ix = 0
+    for df in df_all:
+        logger.debug(f'reading {ix} chunks of publications')
+        publications = df.to_dict(orient='records')
+        publi_ids = [e['id'] for e in publications]
+        matches = get_matches_for_publication(publi_ids)
+        for p in publications:
+            publi_id = p.get('publi_id')
+            authors = p.get('authors')
+            if not isinstance(authors, list):
+                continue
+            for a in authors:
+                author_key = None
+                if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):
+                    author_key = normalize(a.get('first_name'), remove_space=True)[0]+normalize(a.get('last_name'), remove_space=True)
+                elif normalize(a.get('full_name'), remove_space=True):
+                    author_key = normalize(a.get('full_name'), remove_space=True)
+                publi_author_key = f'{publi_id};{author_key}'
+                if publi_author_key in matches:
+                    res = matches[publi_author_key]
+                    a['id'] = res['id']
+                    a['id_method'] = res['method']
+        to_jsonl(publications, f'{final_output}')
+        ix += 1
+
+
+def prepare_publications(publications, manuel_matches):
     relevant_infos = []
     author_keys = []
     # keeping and enriching only with relevant info for person matching
@@ -58,7 +128,8 @@ def prepare_publications(publications):
         else:
             logger.debug(f'missing datasource !! in {p}')
 
-        for f in ['id', 'doi', 'nnt_id', 'title_first_author']:
+        #for f in ['id', 'doi', 'nnt_id', 'title_first_author']:
+        for f in ['id']:
             if f in p:
                 new_elt['id'] = p[f]
                 break
@@ -73,7 +144,6 @@ def prepare_publications(publications):
 
         if not authors:
             # no authors to identify
-            logger.debug(f"no authors for {new_elt['id']}")
             continue
 
         new_elt['nb_authors'] = len(authors)
@@ -90,6 +160,11 @@ def prepare_publications(publications):
             elif normalize(a.get('full_name'), remove_space=True):
                 author_key = normalize(a.get('full_name'), remove_space=True)
                 current_author['full_name'] = a['full_name']
+
+            manual_check_key = f"{p.get('id')};{author_key}"
+            if manual_check_key in manuel_matches:
+                a['idref'] = manuel_matches[manual_check_key].replace('idref', '')
+                logger.debug(f"setting {a['idref']} for {manual_check_key} from manual input!")
 
             if author_key and len(author_key) > 4:
                 current_author['author_key'] = author_key
@@ -118,6 +193,19 @@ def prepare_publications(publications):
                 continue
             for elt in elts:
                 entity_linked.append(normalize(elt, remove_space=True))
+        
+        affiliations = p.get('affiliations')
+        if isinstance(affiliations, list) and affiliations:
+            for aff in affiliations:
+                for identifier in aff.get('ids', []):
+                    if identifier.get('type') == 'rnsr':
+                        entity_linked.append(normalize(identifier['id'], remove_space=True))
+        
+        classifications = p.get('classifications')
+        if isinstance(classifications, list) and classifications:
+            for classification in classification:
+                if classification.get('reference') == 'wikidata':
+                    entity_linked.append(classification.get('code'))
 
         entity_linked = [e for e in list(set(entity_linked)) if e]
         new_elt['entity_linked'] = entity_linked
@@ -158,22 +246,34 @@ def save_to_mongo_results(results, author_key):
     logger.debug(f'Deleting {output_json}')
     os.remove(output_json)
 
-def match(publications, author_key):
+def match(author_key):
+        
+    publications = get_publications_from_author_key(author_key)
 
-    are_publications_prepared = False
+    #if not are_publications_prepared:
+    #    publications = prepare_publications(publications)
+
+    # 1. on commence par mettre les ids déjà connus
     for p in publications:
-        if p.get('nb_authors'):
-            are_publications_prepared = True
-            break
-    if not are_publications_prepared:
-        publications = prepare_publications(publications)
+        authors = p.get('authors')
+        if not isinstance(authors, list):
+            continue
+        for aut in authors:
+            if aut.get('author_key') == author_key and isinstance(aut.get('id'), str):
+                p['person_id'] = {'id': aut['id'], 'method': 'input'}
 
+    # 2. matching par associations d'éléments communs : coauteurs, keywords, issn ...
     publications = association_match(publications, author_key)
+
+    # 3. on complète par des match idref direct sur nom / prenom
     missing_ids = 0
     elements_to_match = {}
     for p in publications:
         if p.get('person_id') is None:
             missing_ids += 1
+            authors = p.get('authors')
+            if not isinstance(authors, list):
+                continue
             for a in p.get('authors', []):
                 if a.get('author_key') == author_key:
                     elt_key = f"{normalize(a.get('first_name'))};;;{normalize(a.get('last_name'))};;;{normalize(a.get('full_name'))}"
@@ -182,8 +282,6 @@ def match(publications, author_key):
 
     logger.debug(f'{missing_ids} missing ids / {len(publications)} publications for {author_key}')
     
-    logger.debug(f'{elements_to_match}')
-    
     for elt_key in elements_to_match:
         first_name = elements_to_match[elt_key]['first_name']
         last_name = elements_to_match[elt_key]['last_name']
@@ -191,14 +289,12 @@ def match(publications, author_key):
         idref = name_idref_match(first_name, last_name, full_name)
         elements_to_match[elt_key]['idref'] = idref
 
-    logger.debug(f'{elements_to_match}')
     
     for p in publications:
         if p.get('person_id') is None:
             for a in p.get('authors', []):
                 if a.get('author_key') == author_key:
                     elt_key = f"{normalize(a.get('first_name'))};;;{normalize(a.get('last_name'))};;;{normalize(a.get('full_name'))}"
-                    logger.debug(elt_key)
                     if elements_to_match[elt_key]['idref']:
                         p['person_id'] = elements_to_match[elt_key]['idref']
 
@@ -213,6 +309,4 @@ def match(publications, author_key):
                 'person_id_match_method': p['person_id']['method']
                 })
     save_to_mongo_results(results, author_key)
-
-    return publications
         
