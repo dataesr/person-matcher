@@ -231,7 +231,7 @@ def save_to_mongo_preprocessed(relevant_infos):
 def save_to_mongo_results(results, author_key):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
-    output_json = f'{MOUNTED_VOLUME}{author_key}.jsonl'
+    output_json = f'{MOUNTED_VOLUME}{author_key[0:100]}.jsonl'
     pd.DataFrame(results).to_json(output_json, lines=True, orient='records')
     collection_name = 'person_matcher_output'
     mongoimport = f'mongoimport --numInsertionWorkers 2 --uri mongodb://mongo:27017/scanr --file {output_json}' \

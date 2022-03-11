@@ -81,10 +81,11 @@ def analyze_doc(doc, first_name_normalized, last_name_normalized, full_name_norm
         if prenoms_elt:
             prenoms = [normalize(p.get_text(), remove_space=False) for p in prenoms_elt.find_all('str')]
         for p in prenoms:
-            if p[0] == first_name_normalized[0]:
-                match_prenom_initiale = True
-            if p == first_name_normalized:
-                match_prenom = True
+            if p and first_name_normalized and isinstance(p, str) and isinstance(first_name_normalized, str):
+                if p[0] == first_name_normalized[0]:
+                    match_prenom_initiale = True
+                if p == first_name_normalized:
+                    match_prenom = True
 
     match_nom = False  
     if last_name_normalized:
