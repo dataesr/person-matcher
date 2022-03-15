@@ -35,7 +35,7 @@ def run_task_match_all():
 def run_task_match2():
     args = request.get_json(force=True)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("person-matcher", default_timeout=216000)
+        q = Queue("person-matcher", default_timeout=2160000)
         task = q.enqueue(create_task_match, args)
     response_object = {
         "status": "success",

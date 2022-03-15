@@ -127,10 +127,16 @@ def filter_xml_response(xml_response, first_name, last_name, full_name):
     last_name_normalized = normalize(last_name, remove_space=False)
     full_name_normalized = normalize(full_name, remove_space=False)
     soup = BeautifulSoup(xml_response, 'lxml')
-    num_found = int(soup.find('result').attrs['numfound'])
+    num_found = 0
+    result = soup.find('result')
+    if result:
+        num_found = int(result.attrs['numfound'])
     threshold = 50
     if num_found > threshold:
         logger.debug(f"more than {threshold} results for search {first_name_normalized} {last_name_normalized} {full_name_normalized}")
+        return []
+    elif num_found < 1:
+        logger.debug(f"no result for search {first_name_normalized} {last_name_normalized} {full_name_normalized}")
         return []
     
     matching_idrefs = []

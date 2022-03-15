@@ -3,7 +3,9 @@ from project.server.main.idref_matcher import name_idref_match
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
+from project.server.main.utils import chunks, to_jsonl
 
+import multiprocess as mp
 import os
 import json
 import pymongo
@@ -12,11 +14,6 @@ import pandas as pd
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
-def to_jsonl(input_list, output_file, mode = 'a'):
-    with open(output_file, mode) as outfile:
-        for entry in input_list:
-            json.dump(entry, outfile)
-            outfile.write('\n')
 
 def get_manual_match():
     download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
@@ -60,8 +57,24 @@ def match_all(args):
     if args.get('preprocess', True):
         pre_process_publications(args)
     author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
-    for author_key in author_keys:
-        match(author_key)
+    logger.debug(f'There are {len(author_keys)} author_keys')
+            
+    # PARALLEL
+    NB_PARALLEL = 5
+    author_keys_chunks = list(chunks(lst=author_keys, n=NB_PARALLEL))
+    jobs = []
+    for ix, current_keys in enumerate(author_keys_chunks):
+        for jx, c in enumerate(current_keys):
+            p = mp.Process(target=match, args=(c, ix * NB_PARALLEL + jx))
+            p.start()
+            jobs.append(p)
+        for p in jobs:
+            p.join()
+
+    # Not parallel
+    #for author_key in author_keys:
+    #    match(author_key)
+
     post_process_publications()
 
 def pre_process_publications(args):
@@ -246,7 +259,10 @@ def save_to_mongo_results(results, author_key):
     logger.debug(f'Deleting {output_json}')
     os.remove(output_json)
 
-def match(author_key):
+def match(author_key, idx=None):
+
+    if idx:
+        logger.debug(f'match author_key number {idx}')
         
     publications = get_publications_from_author_key(author_key)
 
