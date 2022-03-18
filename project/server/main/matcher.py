@@ -60,7 +60,7 @@ def match_all(args):
     logger.debug(f'There are {len(author_keys)} author_keys')
             
     # PARALLEL
-    NB_PARALLEL = 5
+    NB_PARALLEL = 8
     author_keys_chunks = list(chunks(lst=author_keys, n=NB_PARALLEL))
     jobs = []
     for ix, current_keys in enumerate(author_keys_chunks):
