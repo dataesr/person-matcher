@@ -2,13 +2,17 @@ import redis
 from rq import Queue, Connection
 from flask import render_template, Blueprint, jsonify, request, current_app
 
+import json
+
 from project.server.main.tasks import create_task_match
-from project.server.main.matcher import match_all
+from project.server.main.matcher import pre_process_publications
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
+
+MOUNTED_VOLUME = '/upw_data/'
 
 
 @main_blueprint.route("/", methods=["GET"])
@@ -17,10 +21,19 @@ def home():
 
 @main_blueprint.route("/match_all", methods=["POST"])
 def run_task_match_all():
+
     args = request.get_json(force=True)
-    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
-        q = Queue("person-matcher", default_timeout=2160000)
-        task = q.enqueue(match_all, args)
+    if args.get('preprocess', True):
+        pre_process_publications(args)
+    author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
+    logger.debug(f'There are {len(author_keys)} author_keys')
+            
+    author_keys_chunks = list(chunks(lst=author_keys, n=100))
+    for chunk in author_keys_chunks:
+        with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+            q = Queue("person-matcher", default_timeout=2160000)
+            task = q.enqueue(match_all, chunk)
+
     response_object = {
         "status": "success",
         "data": {

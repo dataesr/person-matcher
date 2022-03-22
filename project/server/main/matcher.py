@@ -53,29 +53,11 @@ def get_matches_for_publication(publi_ids):
             data[f'{publi_id};{author_key}'] = person_id
     return data
 
-def match_all(args):
-    if args.get('preprocess', True):
-        pre_process_publications(args)
-    author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
-    logger.debug(f'There are {len(author_keys)} author_keys')
-            
-    # PARALLEL
-    NB_PARALLEL = 8
-    author_keys_chunks = list(chunks(lst=author_keys, n=NB_PARALLEL))
-    jobs = []
-    for ix, current_keys in enumerate(author_keys_chunks):
-        for jx, c in enumerate(current_keys):
-            p = mp.Process(target=match, args=(c, ix * NB_PARALLEL + jx))
-            p.start()
-            jobs.append(p)
-        for p in jobs:
-            p.join()
+def match_all(author_keys):
 
-    # Not parallel
-    #for author_key in author_keys:
-    #    match(author_key)
+    for author_key in author_keys:
+        match(author_key)
 
-    post_process_publications()
 
 def pre_process_publications(args):
     logger.debug('dropping collection person_matcher_input')
@@ -83,10 +65,13 @@ def pre_process_publications(args):
     mydb = myclient['scanr']
     mycoll = mydb['person_matcher_input']
     mycoll.drop()
+    
+    logger.debug('dropping collection person_matcher_output')
+    mydb['person_matcher_output'].drop()
 
     manuel_matches = get_manual_match()
 
-    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr_full.jsonl', lines=True, chunksize=25000)
+    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr.jsonl', lines=True, chunksize=25000)
     author_keys = []
     ix = 0
     for df in df_all:
@@ -102,8 +87,8 @@ def pre_process_publications(args):
 
 def post_process_publications():
     logger.debug('applying person matches to publications')
-    final_output = f'{MOUNTED_VOLUME}/test-scanr_full_person.jsonl'
-    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr_full.jsonl', lines=True, chunksize=5000)
+    final_output = f'{MOUNTED_VOLUME}/test-scanr_person.jsonl'
+    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr.jsonl', lines=True, chunksize=5000)
     ix = 0
     for df in df_all:
         logger.debug(f'reading {ix} chunks of publications')
@@ -184,6 +169,9 @@ def prepare_publications(publications, manuel_matches):
                 entity_linked.append(author_key)
                 author_keys.append(author_key)
 
+            if 'idref' in a.get('id'):
+                a['idref'] = a['id'].replace('idref', '')
+
             for f in ['idref', 'id_hal_s', 'orcid']:
                 if a.get(f):
                     current_id = f+str(a[f])
@@ -216,7 +204,7 @@ def prepare_publications(publications, manuel_matches):
         
         classifications = p.get('classifications')
         if isinstance(classifications, list) and classifications:
-            for classification in classification:
+            for classification in classifications:
                 if classification.get('reference') == 'wikidata':
                     entity_linked.append(classification.get('code'))
 
