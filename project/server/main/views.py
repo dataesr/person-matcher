@@ -6,7 +6,7 @@ import json
 
 from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
-from project.server.main.matcher import pre_process_publications
+from project.server.main.matcher import pre_process_publications, match_all
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -28,7 +28,6 @@ def run_task_match_all():
         pre_process_publications(args)
     author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
     logger.debug(f'There are {len(author_keys)} author_keys')
-            
     author_keys_chunks = list(chunks(lst=author_keys, n=100))
     for chunk in author_keys_chunks:
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
