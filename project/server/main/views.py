@@ -4,6 +4,7 @@ from flask import render_template, Blueprint, jsonify, request, current_app
 
 import json
 
+from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications
 
