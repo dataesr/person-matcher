@@ -13,7 +13,7 @@ import pandas as pd
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
-
+SUDOC_SERVICE = os.getenv('SUDOC_SERVICE')
 
 def get_manual_match():
     download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
@@ -38,26 +38,11 @@ def get_publications_from_author_key(author_key):
     mycoll = mydb['person_matcher_input']
     return list(mycoll.find({'authors.author_key': author_key}))
 
-def get_matches_for_publication(publi_ids):
-    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
-    mydb = myclient['scanr']
-    collection_name = 'person_matcher_output'
-    mycoll = mydb[collection_name]
-    res = list(mycoll.find({ 'publication_id' : { '$in': publi_ids } }))
-    data = {}
-    for r in res:
-        publi_id = r.get('publication_id')
-        author_key = r.get('author_key')
-        person_id = r.get('person_id')
-        if publi_id and author_key and person_id:
-            data[f'{publi_id};{author_key}'] = person_id
-    return data
 
 def match_all(author_keys):
 
     for author_key in author_keys:
         match(author_key)
-
 
 def pre_process_publications(args):
     logger.debug('dropping collection person_matcher_input')
@@ -84,35 +69,6 @@ def pre_process_publications(args):
         ix += 1
     logger.debug(f'{len(author_keys)} author_keys detected')
     json.dump(author_keys, open(f'{MOUNTED_VOLUME}/author_keys.json', 'w'))
-
-def post_process_publications():
-    logger.debug('applying person matches to publications')
-    final_output = f'{MOUNTED_VOLUME}/test-scanr_person.jsonl'
-    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr.jsonl', lines=True, chunksize=5000)
-    ix = 0
-    for df in df_all:
-        logger.debug(f'reading {ix} chunks of publications')
-        publications = df.to_dict(orient='records')
-        publi_ids = [e['id'] for e in publications]
-        matches = get_matches_for_publication(publi_ids)
-        for p in publications:
-            publi_id = p.get('publi_id')
-            authors = p.get('authors')
-            if not isinstance(authors, list):
-                continue
-            for a in authors:
-                author_key = None
-                if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):
-                    author_key = normalize(a.get('first_name'), remove_space=True)[0]+normalize(a.get('last_name'), remove_space=True)
-                elif normalize(a.get('full_name'), remove_space=True):
-                    author_key = normalize(a.get('full_name'), remove_space=True)
-                publi_author_key = f'{publi_id};{author_key}'
-                if publi_author_key in matches:
-                    res = matches[publi_author_key]
-                    a['id'] = res['id']
-                    a['id_method'] = res['method']
-        to_jsonl(publications, f'{final_output}')
-        ix += 1
 
 
 def prepare_publications(publications, manuel_matches):
@@ -169,7 +125,7 @@ def prepare_publications(publications, manuel_matches):
                 entity_linked.append(author_key)
                 author_keys.append(author_key)
 
-            if 'idref' in a.get('id'):
+            if a.get('id') and isinstance(a['id'], str) and 'idref' in a.get('id'):
                 a['idref'] = a['id'].replace('idref', '')
 
             for f in ['idref', 'id_hal_s', 'orcid']:
@@ -304,8 +260,10 @@ def match(author_key, idx=None):
 
     # TODO : n'ajouter que les match qui ne sont pas déjà en base !
     results = []
+    idrefs = []
     for p in publications:
         if p.get('person_id'):
+            idrefs.append(p['person_id'].replace('idref',''))
             results.append({
                 'publication_id': p['id'],
                 'author_key': author_key,
@@ -313,4 +271,6 @@ def match(author_key, idx=None):
                 'person_id_match_method': p['person_id']['method']
                 })
     save_to_mongo_results(results, author_key)
+    idrefs = list(set(idrefs))
+    requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs}) 
         

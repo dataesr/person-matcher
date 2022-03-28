@@ -26,6 +26,8 @@ def run_task_match_all():
     args = request.get_json(force=True)
     if args.get('preprocess', True):
         pre_process_publications(args)
+    # TODO
+    # arg to clean output database
     author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
     logger.debug(f'There are {len(author_keys)} author_keys')
     author_keys_chunks = list(chunks(lst=author_keys, n=100))
