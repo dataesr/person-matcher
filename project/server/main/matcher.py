@@ -5,6 +5,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
 from project.server.main.utils import chunks, to_jsonl
 
+import requests
 import multiprocess as mp
 import os
 import json
@@ -263,7 +264,7 @@ def match(author_key, idx=None):
     idrefs = []
     for p in publications:
         if p.get('person_id'):
-            idrefs.append(p['person_id'].replace('idref',''))
+            idrefs.append(p['person_id']['id'].replace('idref',''))
             results.append({
                 'publication_id': p['id'],
                 'author_key': author_key,
