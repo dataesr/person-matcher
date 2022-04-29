@@ -7,6 +7,7 @@ import json
 from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications, match_all
+from project.server.main.scanr import export_scanr
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -19,6 +20,21 @@ MOUNTED_VOLUME = '/upw_data/'
 @main_blueprint.route("/", methods=["GET"])
 def home():
     return render_template("main/home.html")
+
+@main_blueprint.route("/scanr", methods=["POST"])
+def run_task_scanr():
+    args = request.get_json(force=True)
+    with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+        q = Queue("person-matcher", default_timeout=21600000)
+        task = q.enqueue(export_scanr, args)
+    response_object = {
+        "status": "success",
+        "data": {
+            "task_id": task.get_id()
+        }
+    }
+    return jsonify(response_object), 202
+
 
 @main_blueprint.route("/match_all", methods=["POST"])
 def run_task_match_all():

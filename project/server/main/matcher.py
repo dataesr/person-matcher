@@ -72,6 +72,63 @@ def pre_process_publications(args):
     json.dump(author_keys, open(f'{MOUNTED_VOLUME}/author_keys.json', 'w'))
 
 
+def get_publis_meta(publications):
+    metas = []
+    for p in publications:
+        if 'id' not in p:
+            continue
+        elt = {'id': p['id']}
+        if 'year' in p:
+            elt['year'] = p['year']
+        # domains
+        domains = []
+        if isinstance(p.get('classifications'), list):
+            for c in p['classifications']:
+                if c.get('label'):
+                    domain = {'label': {'default': c['label']}}
+                    domain['code'] = str(c.get('code'))
+                    domain['type'] = c.get('reference')
+                    domains.append(domain)
+                if c.get('label_fr'):
+                    domain = {'label': {'default': c['label_fr']}}
+                    domain['code'] = str(c.get('code'))
+                    domain['type'] = c.get('reference')
+                    domains.append(domain)
+        if isinstance(p.get('hal_classifications'), list):
+            for c in p['hal_classifications']:
+                if c.get('label'):
+                    domain = {'label': {'default': c['label']}}
+                    domain['code'] = str(c.get('code'))
+                    domain['type'] = 'HAL'
+                    domains.append(domain)
+        if isinstance(p.get('thematics'), list):
+            for c in p['thematics']:
+                if c.get('fr_label'):
+                    domain = {'label': {'default': c.get('fr_label')}}
+                    domain['code'] = c.get('code')
+                    domain['type'] = c.get('reference')
+        if p.get('bso_classification') and isinstance(p.get('bso_classification'), str):
+            domains.append({'label': {'default': p['bso_classification']}, 'type': 'bso_classification'})
+        if isinstance(p.get('bsso_classification'), dict) and isinstance(p['bsso_classification'].get('field'), str):
+            domains.append({'label': {'default': p['bsso_classification']['field']}, 'type': 'bsso_classification'})
+        #if p.get('sdg_classification'):
+        #    domains.append({'label': {'default': p['bso_classification']}, 'type': 'bso_classification'})
+        # keywords
+        keywords = []
+        if isinstance(p.get('keywords'), list):
+            for k in p['keywords']:
+                if k.get('keyword'):
+                    keywords.append(k['keyword'])
+                    domains.append({'label': {'default': k['keyword']}, 'type': 'keyword'})
+        if keywords:
+            elt['keywords'] = {'default': keywords}
+        if domains:
+            elt['domains'] = domains
+        if elt:
+            metas.append(elt)
+    return metas
+        
+
 def prepare_publications(publications, manuel_matches):
     relevant_infos = []
     author_keys = []
@@ -128,7 +185,9 @@ def prepare_publications(publications, manuel_matches):
 
             if a.get('id') and isinstance(a['id'], str) and 'idref' in a.get('id'):
                 a['idref'] = a['id'].replace('idref', '')
-
+            
+            if 'role' in a:
+                current_author['role'] = a['role']
             for f in ['idref', 'id_hal_s', 'orcid']:
                 if a.get(f):
                     current_id = f+str(a[f])
@@ -137,6 +196,13 @@ def prepare_publications(publications, manuel_matches):
                     entity_linked.append(current_id)
                 if a.get('idref'):
                     current_author['id'] = f"idref{a['idref']}"
+                if a.get('affiliations') and isinstance(a['affiliations'], list):
+                    aff = []
+                    for aff in a['affiliations']:
+                        if isinstance(aff.get('ids'), list):
+                            aff = [k['id'] for k in aff['ids'] if 'id' in k]
+                    if aff:
+                        current_author['affiliations'] = aff
             new_elt['authors'].append(current_author)
 
         
@@ -267,6 +333,9 @@ def match(author_key, idx=None):
             idrefs.append(p['person_id']['id'].replace('idref',''))
             results.append({
                 'publication_id': p['id'],
+                'year': p.get('year'),
+                'role': p.get('role', 'author'),
+                'affiliations': p.get('affiliations', []),
                 'author_key': author_key,
                 'person_id': p['person_id']['id'],
                 'person_id_match_method': p['person_id']['method']

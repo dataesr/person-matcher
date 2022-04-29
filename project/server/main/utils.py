@@ -13,3 +13,16 @@ def to_jsonl(input_list, output_file, mode = 'a'):
         for entry in input_list:
             json.dump(entry, outfile)
             outfile.write('\n')
+
+def to_json(input_list, output_file, ix):
+    if ix == 0:
+        mode = 'w'
+    else:
+        mode = 'a'
+    with open(output_file, mode) as outfile:
+        if ix == 0:
+            outfile.write('[')
+        for jx, entry in enumerate(input_list):
+            if ix + jx != 0:
+                outfile.write(',\n')
+            json.dump(entry, outfile)
