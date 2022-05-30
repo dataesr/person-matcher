@@ -21,7 +21,7 @@ def get_publications_for_idref(idref):
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
-    cursor = mycoll.find({ 'authors.id' : { '$in': [idref] } })
+    cursor = mycoll.find({ 'authors.person' : { '$in': [idref] } })
     for r in cursor:
         del r['_id']
         res.append(r)
@@ -29,7 +29,7 @@ def get_publications_for_idref(idref):
     return res
 
 def export_scanr(args):
-    if args.get('new_idrefs', False):
+    if args.get('new_idrefs', True):
         # writing output idrefs
         logger.debug(f'writing {MOUNTED_VOLUME}output_idrefs.csv')
         os.system(f'echo "idref" > {MOUNTED_VOLUME}output_idrefs.csv')
@@ -49,6 +49,13 @@ def export_scanr(args):
     scanr_output_file = f'{MOUNTED_VOLUME}scanr/persons.json'
     os.system(f'rm -rf {scanr_output_file}')
     ix = 0
+
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    mycoll.create_index('authors.person')
+    
     for idref in idrefs:
         person = export_one_person(idref, input_dict, ix)
         to_json([person], f'{MOUNTED_VOLUME}scanr/persons.json', ix)
@@ -65,7 +72,7 @@ def export_one_person(idref, input_dict, ix):
         links = current_data.get('links')
         externalIds = current_data.get('externalIds')
     publications = get_publications_for_idref(f'idref{idref}')
-    logger.debug(f'{len(publications)} for idref{idref} (ix={ix})')
+    logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
     domains, co_authors, author_publications = [], [], []
     affiliations, names, keywords = {}, {}, {}
     for p in publications:
