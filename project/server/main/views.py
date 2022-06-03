@@ -7,7 +7,7 @@ import json
 from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications, match_all
-from project.server.main.scanr import export_scanr
+from project.server.main.scanr import export_scanr, upload_sword
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -35,6 +35,14 @@ def run_task_scanr():
     }
     return jsonify(response_object), 202
 
+@main_blueprint.route('/upload_sword', methods=['POST'])
+def run_task_upload_sword():
+    args = request.get_json(force=True)
+    with Connection(redis.from_url(current_app.config['REDIS_URL'])):
+        q = Queue(name='person-matcher', default_timeout=21600000)
+        task = q.enqueue(upload_sword, args)
+    response_object = {'status': 'success', 'data': {'task_id': task.get_id()}}
+    return jsonify(response_object), 202
 
 @main_blueprint.route("/match_all", methods=["POST"])
 def run_task_match_all():

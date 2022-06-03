@@ -18,8 +18,11 @@ SUDOC_SERVICE = os.getenv('SUDOC_SERVICE')
 
 def get_manual_match():
     download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
+    download_object('misc', 'orcid_idref.json', '/upw_data/orcid_idref.json')
     publi_author_dict = {}
-    infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
+    manual_infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
+    orcid_infos = pd.read_json('/upw_data/orcid_idref.json', lines=True).to_dict(orient='records')
+    infos = manual_infos + orcid_infos
     for a in infos:
         author_key = None
         if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):

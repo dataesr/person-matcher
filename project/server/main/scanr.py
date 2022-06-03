@@ -3,6 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 
+import pysftp
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -13,6 +14,21 @@ from retry import retry
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
+
+person_id_key = 'person'
+
+def upload_sword(args):
+    logger.debug('start sword upload')
+    os.system('mkdir -p  /upw_data/logs')
+    host=os.getenv('SWORD_PREPROD_HOST')
+    username=os.getenv('SWORD_PREPROD_USERNAME')
+    password=os.getenv('SWORD_PREPROD_PASSWORD')
+    cnopts = pysftp.CnOpts()
+    cnopts.hostkeys = None
+    with pysftp.Connection(host, username=username, password=password, port=2222, cnopts=cnopts, log='/upw_data/logs/logs_persons.log') as sftp:
+        with sftp.cd('upload'):             # temporarily chdir to public
+            sftp.put('/upw_data/scanr/persons.json')  # upload file to public/ on remote
+    logger.debug('end sword upload')
 
 @retry(delay=200, tries=3)
 def get_publications_for_idref(idref):
@@ -62,7 +78,7 @@ def export_scanr(args):
         ix += 1
     with open(scanr_output_file, 'a') as outfile:
         outfile.write(']')
-
+    upload_sword({})
 
 def export_one_person(idref, input_dict, ix):
     prizes, links, externalIds = [], [], []
@@ -93,7 +109,7 @@ def export_one_person(idref, input_dict, ix):
                             keywords[lang].append(k)
         if isinstance(p.get('authors', []), list):
             for a in p.get('authors', []):
-                if a.get('id') == 'idref'+idref:
+                if a.get(person_id_key) == 'idref'+idref:
                     author_publications.append({'publication': p['id'], 'role': a.get('role', 'author')})
                     key = None
                     if a.get('firstName') and a.get('lastName'):
@@ -119,8 +135,8 @@ def export_one_person(idref, input_dict, ix):
                                     affiliations[aff]['startDate'] = f'{year}-01-01T00:00:00'
                                 else:
                                     affiliations[aff]['startDate'] = min(affiliations[aff]['startDate'], f'{year}-01-01T00:00:00')
-                elif 'nnt' not in p['id'] and a.get('id') and 'idref' in a.get('id') and a.get('role') and 'aut' in a.get('role'):
-                    co_authors.append(a['id'])
+                elif 'nnt' not in p['id'] and a.get(person_id_key) and 'idref' in a.get(person_id_key) and a.get('role') and 'aut' in a.get('role'):
+                    co_authors.append(a[person_id_key])
     person = {'id': f'idref{idref}', 'coContributors': list(set(co_authors)), 'domains': domains, 'publications': author_publications, 'keywords': keywords}
     if affiliations:
         person['affiliations'] = list(affiliations.values())
