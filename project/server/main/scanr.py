@@ -156,7 +156,7 @@ def export_one_person(idref, input_dict, ix):
         if 'FIRST_LAST;'in main_name:
             person['firstName'] = main_name.replace('FIRST_LAST;','').split(';')[0]
             person['lastName'] = main_name.replace('FIRST_LAST;','').split(';')[1]
-            person['fullName'] = f"{person['first_name']} {person['last_name']}"
+            person['fullName'] = f"{person['firstName']} {person['lastName']}"
         elif 'FULL;' in main_name:
             person['fullName'] = main_name.replace('FULL;','')
     if len(person.get('first_name', '')) < 4:
