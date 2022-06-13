@@ -124,7 +124,7 @@ def export_one_person(idref, input_dict, ix):
                     if isinstance(a.get('affiliations', []), list):
                         for aff in a.get('affiliations', []):
                             if aff not in affiliations:
-                                affiliations[aff] = {'id': aff, 'sources': []}
+                                affiliations[aff] = {'structure': aff, 'sources': []}
                                 affiliations[aff]['sources'].append(p['id'])
                             if year:
                                 if 'endDate' not in affiliations[aff]:
@@ -154,11 +154,11 @@ def export_one_person(idref, input_dict, ix):
     if len(names) > 0:
         main_name = sorted(names.items(), key=lambda item: item[1], reverse=True)[0][0]
         if 'FIRST_LAST;'in main_name:
-            person['first_name'] = main_name.replace('FIRST_LAST;','').split(';')[0]
-            person['last_name'] = main_name.replace('FIRST_LAST;','').split(';')[1]
-            person['full_name'] = f"{person['first_name']} {person['last_name']}"
+            person['firstName'] = main_name.replace('FIRST_LAST;','').split(';')[0]
+            person['lastName'] = main_name.replace('FIRST_LAST;','').split(';')[1]
+            person['fullName'] = f"{person['first_name']} {person['last_name']}"
         elif 'FULL;' in main_name:
-            person['full_name'] = main_name.replace('FULL;','')
+            person['fullName'] = main_name.replace('FULL;','')
     if len(person.get('first_name', '')) < 4:
             try:
                 idref_info = get_idref_info(idref)
@@ -186,7 +186,7 @@ def get_idref_info(idref):
         last_name_elt = name_elt.find('subfield', {'code': 'a'})
         if last_name_elt:
             last_name = last_name_elt.text
-            person['last_name'] = last_name
+            person['lastName'] = last_name
             fullName += last_name
         fullName = fullName.strip()
         if fullName:
