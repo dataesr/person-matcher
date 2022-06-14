@@ -216,4 +216,5 @@ def get_idref_info(idref):
             externalIds.append({'type': 'id_hal', 'id': id_hal})
     if externalIds:
         person['externalIds'] = externalIds
+    person['projects'] = [] # necessaire pour import coexya !
     return person
