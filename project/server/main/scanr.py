@@ -146,11 +146,11 @@ def export_one_person(idref, input_dict, ix):
         person['links'] = links
     if externalIds:
         person['externalIds'] = externalIds
-        for c in externalIds:
-            if c['type'] == 'orcid':
-                person['orcid'] = c['id']
-            if c['type'] == 'id_hal':
-                person['id_hal'] = c['id']
+        #for c in externalIds:
+        #    if c['type'] == 'orcid':
+        #        person['orcid'] = c['id']
+        #    if c['type'] == 'id_hal':
+        #        person['id_hal'] = c['id']
     if len(names) > 0:
         main_name = sorted(names.items(), key=lambda item: item[1], reverse=True)[0][0]
         if 'FIRST_LAST;'in main_name:
