@@ -17,6 +17,8 @@ MOUNTED_VOLUME = '/upw_data/'
 
 person_id_key = 'person'
 
+# sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
+
 def upload_sword(args):
     logger.debug('start sword upload')
     os.system('mkdir -p  /upw_data/logs')
@@ -126,7 +128,7 @@ def export_one_person(idref, input_dict, ix):
                             if aff not in affiliations:
                                 affiliations[aff] = {'structure': aff, 'sources': []}
                                 affiliations[aff]['sources'].append(p['id'])
-                            if year:
+                            if year and len(str(year))==4:
                                 if 'endDate' not in affiliations[aff]:
                                     affiliations[aff]['endDate'] = f'{year}-12-31T00:00:00'
                                 else:
@@ -141,9 +143,21 @@ def export_one_person(idref, input_dict, ix):
     if affiliations:
         person['affiliations'] = list(affiliations.values())
     if prizes:
-        person['prizes'] = prizes
-    if links:
-        person['links'] = links
+        awards = []
+        for p in prizes:
+            award = {}
+            if p.get('prize_name'):
+                award['label'] = p['prize_name']
+            if p.get('prize_date'):
+                award['date'] = p['prize_date']
+            if p.get('prize_url'):
+                award['url'] = p['prize_url']
+            if award:
+                awards.append(award)
+        if awards:
+            person['awards'] = awards
+    #if links:
+    #    person['links'] = links
     if externalIds:
         person['externalIds'] = externalIds
         #for c in externalIds:
