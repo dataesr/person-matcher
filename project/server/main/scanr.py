@@ -127,7 +127,7 @@ def export_one_person(idref, input_dict, ix):
                         for aff in a.get('affiliations', []):
                             if aff not in affiliations:
                                 affiliations[aff] = {'structure': aff, 'sources': []}
-                                affiliations[aff]['sources'].append(p['id'])
+                            affiliations[aff]['sources'].append(p['id'])
                             if year and len(str(year))==4:
                                 if 'endDate' not in affiliations[aff]:
                                     affiliations[aff]['endDate'] = f'{year}-12-31T00:00:00'
