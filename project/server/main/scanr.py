@@ -17,6 +17,8 @@ MOUNTED_VOLUME = '/upw_data/'
 
 person_id_key = 'person'
 
+DOMAINS_FOR_SCANR = ['sudoc', 'wikidata', 'keyword']
+
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
 def upload_sword(args):
@@ -99,7 +101,7 @@ def export_one_person(idref, input_dict, ix):
             year = str(int(year))
         if isinstance(p.get('domains'), list):
             for d in p.get('domains', []):
-                if d not in domains:
+                if d not in domains and d.get('type') in DOMAINS_FOR_SCANR:
                     domains.append(d)
         if isinstance(p.get('keywords'), dict):
             for lang in ['default', 'fr', 'en']:
@@ -142,7 +144,7 @@ def export_one_person(idref, input_dict, ix):
     person = {'id': f'idref{idref}', 'coContributors': list(set(co_authors)), 'domains': domains, 'publications': author_publications, 'keywords': keywords}
     if affiliations:
         person['affiliations'] = list(affiliations.values())
-    if prizes:
+    if isinstance(prizes, list):
         awards = []
         for p in prizes:
             award = {}
@@ -158,7 +160,7 @@ def export_one_person(idref, input_dict, ix):
             person['awards'] = awards
     #if links:
     #    person['links'] = links
-    if externalIds:
+    if isinstance(externalIds, list):
         person['externalIds'] = externalIds
         #for c in externalIds:
         #    if c['type'] == 'orcid':
