@@ -104,6 +104,11 @@ def export_one_person(idref, input_dict, ix):
                 if domain_key not in domainsCount:
                     domainsCount[domain_key] = {'count': 0, 'domain': d}
                 domainsCount[domain_key]['count'] += 1
+                domain_code = d.get('code', '').lower().strip()
+                if domain_code:
+                    if domain_code not in domainsCount:
+                        domainsCount[domain_code] = {'count': 0, 'domain': d}
+                    domainsCount[domain_code]['count'] += 1
         if isinstance(p.get('keywords'), dict):
             for lang in ['default', 'fr', 'en']:
                 if lang in p['keywords']:
@@ -144,9 +149,16 @@ def export_one_person(idref, input_dict, ix):
                 elif 'nnt' not in p['id'] and a.get(person_id_key) and 'idref' in a.get(person_id_key) and a.get('role') and 'aut' in a.get('role'):
                     co_authors.append(a[person_id_key])
     person = {'id': f'idref{idref}', 'coContributors': list(set(co_authors)), 'publications': author_publications, 'keywords': keywords}
-    domains = [d[1]['domain'] for d in sorted(domainsCount.items(), key=lambda item: item[1]['count'], reverse=True)]
-    if domains:
-        person['domains'] = domains
+    domainsSorted = [d[1]['domain'] for d in sorted(domainsCount.items(), key=lambda item: item[1]['count'], reverse=True)]
+    currentCodes = []
+    currentDomainKey = []
+    for d in domainsSorted:
+        if d.get('code') and d['code'] in currentCodes:
+            continue
+        domains.append(d)
+        if d.get('code'):
+            currentCodes.append(d['code'])
+    person['domains'] = domains
     if affiliations:
         person['affiliations'] = list(affiliations.values())
     if isinstance(prizes, list):
