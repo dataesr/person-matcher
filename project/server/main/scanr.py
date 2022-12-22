@@ -17,8 +17,6 @@ MOUNTED_VOLUME = '/upw_data/'
 
 person_id_key = 'person'
 
-DOMAINS_FOR_SCANR = ['sudoc', 'wikidata', 'keyword']
-
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
 def upload_sword(args):
@@ -95,14 +93,17 @@ def export_one_person(idref, input_dict, ix):
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
     domains, co_authors, author_publications = [], [], []
     affiliations, names, keywords = {}, {}, {}
+    domainsCount = {}
     for p in publications:
         year = p.get('year')
         if year:
-            year = str(int(year))
+            year = str(int(year)).replace('.0', '')
         if isinstance(p.get('domains'), list):
             for d in p.get('domains', []):
-                if d not in domains and d.get('type') in DOMAINS_FOR_SCANR:
-                    domains.append(d)
+                domain_key = d.get('label', {}).get('default', '').lower().strip()
+                if domain_key not in domainsCount:
+                    domainsCount[domain_key] = {'count': 0, 'domain': d}
+                domainsCount[domain_key]['count'] += 1
         if isinstance(p.get('keywords'), dict):
             for lang in ['default', 'fr', 'en']:
                 if lang in p['keywords']:
@@ -129,7 +130,8 @@ def export_one_person(idref, input_dict, ix):
                         for aff in a.get('affiliations', []):
                             if aff not in affiliations:
                                 affiliations[aff] = {'structure': aff, 'sources': []}
-                            affiliations[aff]['sources'].append(p['id'])
+                            if p['id'] not in affiliations[aff]['sources']:
+                                affiliations[aff]['sources'].append(p['id'])
                             if year and len(str(year))==4:
                                 if 'endDate' not in affiliations[aff]:
                                     affiliations[aff]['endDate'] = f'{year}-12-31T00:00:00'
@@ -141,7 +143,10 @@ def export_one_person(idref, input_dict, ix):
                                     affiliations[aff]['startDate'] = min(affiliations[aff]['startDate'], f'{year}-01-01T00:00:00')
                 elif 'nnt' not in p['id'] and a.get(person_id_key) and 'idref' in a.get(person_id_key) and a.get('role') and 'aut' in a.get('role'):
                     co_authors.append(a[person_id_key])
-    person = {'id': f'idref{idref}', 'coContributors': list(set(co_authors)), 'domains': domains, 'publications': author_publications, 'keywords': keywords}
+    person = {'id': f'idref{idref}', 'coContributors': list(set(co_authors)), 'publications': author_publications, 'keywords': keywords}
+    domains = [d[1]['domain'] for d in sorted(domainsCount.items(), key=lambda item: item[1]['count'], reverse=True)]
+    if domains:
+        person['domains'] = domains
     if affiliations:
         person['affiliations'] = list(affiliations.values())
     if isinstance(prizes, list):
@@ -162,6 +167,8 @@ def export_one_person(idref, input_dict, ix):
     #    person['links'] = links
     if isinstance(externalIds, list):
         person['externalIds'] = externalIds
+        if 'idref' not in [ex.get('type') for ex in externalIds]:
+            person['externalIds'].append({'type': 'idref', 'id': idref})
         #for c in externalIds:
         #    if c['type'] == 'orcid':
         #        person['orcid'] = c['id']
@@ -216,7 +223,7 @@ def get_idref_info(idref):
         elif sub_elt and sub_elt.text == 'ba':
             person['gender'] = 'M'
     #ids
-    externalIds = []
+    externalIds = [{'type': 'idref', 'id': idref}]
     for id_elt in soup.find_all('datafield', {'tag': '035'}):
         code_elt = id_elt.find('subfield', {'code': '2'})
         if code_elt and code_elt.text.lower() == 'orcid':

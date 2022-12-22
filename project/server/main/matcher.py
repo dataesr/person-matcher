@@ -346,5 +346,5 @@ def match(author_key, idx=None):
     save_to_mongo_results(results, author_key)
     idrefs = list(set(idrefs))
     if idrefs:
-        requests.post(f'{SUDOC_SERVICE}/harvest', json={'id_refs': idrefs}) 
+        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs}) 
         
