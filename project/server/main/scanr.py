@@ -11,6 +11,7 @@ import json
 import pymongo
 import pandas as pd
 from retry import retry
+from dateutil import parser
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
@@ -19,18 +20,53 @@ person_id_key = 'person'
 
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
-def upload_sword(args):
+def upload_sword(index_name):
     logger.debug('start sword upload')
+    os.system('mkdir -p  /upw_data/scanr')
     os.system('mkdir -p  /upw_data/logs')
-    host=os.getenv('SWORD_PREPROD_HOST')
-    username=os.getenv('SWORD_PREPROD_USERNAME')
-    password=os.getenv('SWORD_PREPROD_PASSWORD')
+    try:
+        os.system(f'mv /upw_data/{index_name}_export_scanr.json /upw_data/scanr/publications.json')
+    except:
+        logger.debug(f'erreur dans mv /upw_data/{index_name}_export_scanr.json /upw_data/scanr/publications.json')
+    host = os.getenv('SWORD_PREPROD_HOST')
+    username = os.getenv('SWORD_PREPROD_USERNAME')
+    password = os.getenv('SWORD_PREPROD_PASSWORD')
+    port = int(os.getenv('SWORD_PREPROD_PORT'))
+    FTP_PATH = 'upload'
+    # TOREMOVE if sword OK
+    host = os.getenv('SWORD_PROD_HOST')
+    username = os.getenv('SWORD_PROD_USERNAME')
+    password = os.getenv('SWORD_PROD_PASSWORD')
+    port = int(os.getenv('SWORD_PROD_PORT'))
+    FTP_PATH = 'upload/preprod'
+    # cat publications.json | sed -e "s/,$//" | sed -e "s/^\[//" | sed -e "s/\]$//i"
     cnopts = pysftp.CnOpts()
     cnopts.hostkeys = None
-    with pysftp.Connection(host, username=username, password=password, port=2222, cnopts=cnopts, log='/upw_data/logs/logs_persons.log') as sftp:
-        with sftp.cd('upload'):             # temporarily chdir to public
+    with pysftp.Connection(host, username=username, password=password, port=port, cnopts=cnopts, log='/upw_data/logs/logs.log') as sftp:
+        try:
+            sftp.chdir(FTP_PATH)  # Test if remote_path exists
+        except IOError:
+            sftp.mkdir(FTP_PATH)  # Create remote_path
+            sftp.chdir(FTP_PATH)
+    with pysftp.Connection(host, username=username, password=password, port=port, cnopts=cnopts, log='/upw_data/logs/logs.log') as sftp:
+        with sftp.cd(FTP_PATH):             # temporarily chdir to public
+            sftp.put('/upw_data/scanr/publications.json')  # upload file to public/ on remote
             sftp.put('/upw_data/scanr/persons.json')  # upload file to public/ on remote
     logger.debug('end sword upload')
+
+#def upload_sword(args):
+#    logger.debug('start sword upload')
+#    os.system('mkdir -p  /upw_data/logs')
+#    host=os.getenv('SWORD_PREPROD_HOST')
+#    username=os.getenv('SWORD_PREPROD_USERNAME')
+#    password=os.getenv('SWORD_PREPROD_PASSWORD')
+#    cnopts = pysftp.CnOpts()
+#    cnopts.hostkeys = None
+#    with pysftp.Connection(host, username=username, password=password, port=2222, cnopts=cnopts, log='/upw_data/logs/logs_persons.log') as sftp:
+#        with sftp.cd('upload'):             # temporarily chdir to public
+#            sftp.put('/upw_data/scanr/persons.json')  # upload file to public/ on remote
+#    logger.debug('end sword upload')
+#
 
 @retry(delay=200, tries=3)
 def get_publications_for_idref(idref):
@@ -80,7 +116,8 @@ def export_scanr(args):
         ix += 1
     with open(scanr_output_file, 'a') as outfile:
         outfile.write(']')
-    upload_sword({})
+    index_name = args.get('index')
+    upload_sword(index_name)
 
 def export_one_person(idref, input_dict, ix):
     prizes, links, externalIds = [], [], []
@@ -168,7 +205,10 @@ def export_one_person(idref, input_dict, ix):
             if p.get('prize_name'):
                 award['label'] = p['prize_name']
             if p.get('prize_date'):
-                award['date'] = p['prize_date']
+                try:
+                    award['date'] = dateutil.parser.parse(p['prize_date']).isoformat()
+                except:
+                    logger.debug(f"award date not valid : {p['prize_date']}")
             if p.get('prize_url'):
                 award['url'] = p['prize_url']
             if award:

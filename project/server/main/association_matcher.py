@@ -5,9 +5,14 @@ import pandas as pd
 from collections import Counter
 
 logger = get_logger(__name__)
+verbose=False
 
 def merge_clusters(proposed_clusters, target, entity_to_cluster, cluster_to_entities):
-    print(f"merging {proposed_clusters} to {target}")
+    logger.debug(f"merging {proposed_clusters} to {target}")
+    if verbose:
+        for c in proposed_clusters:
+            if c in cluster_to_entities:
+                logger.debug(f'proposed_cluster {c} - entities {cluster_to_entities[c]}')
     for aut in entity_to_cluster:
         if entity_to_cluster[aut] in proposed_clusters:
             entity_to_cluster[aut] = target
@@ -27,16 +32,29 @@ def get_main_modality(x):
 
 def get_id(publis, cluster_id, input_coaut_key):
     known_ids = []
+    known_publis = []
     publis_in_cluster = [p for p in publis if p['cluster'] == cluster_id]
     for p in publis_in_cluster:
         for a in p.get('authors'):
             if 'author_key' in a and a['author_key'] == input_coaut_key and 'id' in a:
                 known_ids.append(a['id'])
+                known_publis.append(p)
     if len(set(known_ids))> 1:
-        logger.debug(f"cluster {cluster_id} seems mixed up")
+        logger.debug(f"cluster {cluster_id} seems mixed up : ")
+        logger.debug(f'{known_publis}')
         return None
     if known_ids:
         return known_ids[0]
+
+def filter_entity_linked(entities, input_author_key):
+    res = []
+    for e in entities:
+        if e == input_author_key:
+            continue
+        if len(e) <= 6:
+            continue
+        res.append(e)
+    return res
 
 def association_match(publis, input_author_key):
 
@@ -47,7 +65,7 @@ def association_match(publis, input_author_key):
     for p in publis:
         if not p['entity_linked']:
             continue
-        entity_linked = [e for e in p['entity_linked'] if e != input_author_key]
+        entity_linked = filter_entity_linked(p['entity_linked'], input_author_key)
 
         current_cluster = None
         possible_clusters = []
@@ -75,13 +93,15 @@ def association_match(publis, input_author_key):
     # 2e tour : application des liaisons
     for p in publis:
         clusters = []
+        clusters_unique = []
         if not p['entity_linked']:
             continue
-        entity_linked = [e for e in p['entity_linked'] if e != input_author_key]
+        entity_linked = filter_entity_linked(p['entity_linked'], input_author_key) 
         for c in entity_linked:
             clusters.append(entity_to_cluster[c])
-            clusters = list(set(clusters))
-        if len(clusters) == 1:
+            clusters_unique = list(set(clusters))
+        # si un seul cluster qui apparait au moins 2 fois
+        if len(clusters_unique) == 1 and len(clusters) >= 2:
             p['cluster'] = clusters[0]
         else:
             p['cluster'] = None
@@ -101,12 +121,12 @@ def association_match(publis, input_author_key):
             clusters = []
             if not p['entity_linked']:
                 continue
-            entity_linked = [e for e in p['entity_linked'] if e != input_author_key]
+            entity_linked = filter_entity_linked(p['entity_linked'], input_author_key)
             for c in entity_linked:
                 clusters.append(entity_to_cluster[c])
-            clusters = list(set(clusters))
-
-            if len(clusters)>1:
+            clusters_unique = list(set(clusters))
+            # si un seul cluster qui apparait au moins 2 fois
+            if len(clusters_unique) == 1 and len(clusters) >= 2:
                 matching_ids = [c for c in clusters if 'internal' not in str(c)]
                 if len(matching_ids) == 1:
                     merge_clusters(clusters, matching_ids[0], entity_to_cluster, cluster_to_entities)

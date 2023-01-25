@@ -49,6 +49,7 @@ def match_all(author_keys):
         match(author_key)
 
 def pre_process_publications(args):
+    index_name = args.get('index')
     logger.debug('dropping collection person_matcher_input')
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
@@ -60,7 +61,7 @@ def pre_process_publications(args):
 
     manuel_matches = get_manual_match()
 
-    df_all = pd.read_json(f'{MOUNTED_VOLUME}/test-scanr.jsonl', lines=True, chunksize=25000)
+    df_all = pd.read_json(f'{MOUNTED_VOLUME}/{index_name}.jsonl', lines=True, chunksize=25000)
     author_keys = []
     ix = 0
     for df in df_all:
@@ -275,6 +276,8 @@ def save_to_mongo_results(results, author_key):
 
 def match(author_key, idx=None):
 
+    force_download = True
+
     if idx:
         logger.debug(f'match author_key number {idx}')
         
@@ -346,5 +349,5 @@ def match(author_key, idx=None):
     save_to_mongo_results(results, author_key)
     idrefs = list(set(idrefs))
     if idrefs:
-        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs}) 
+        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download}) 
         
