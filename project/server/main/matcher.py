@@ -213,7 +213,7 @@ def prepare_publications(publications, manuel_matches):
         issns = p.get('journal_issns', '')
         if isinstance(issns, str) and issns:
             for elt in issns.split(','):
-                entity_linked.append(normalize(elt, remove_space=True))
+                entity_linked.append('issn'+normalize(elt, remove_space=True))
         
         for other_entity in ['keywords']:
             elts = p.get(other_entity, [])
@@ -233,7 +233,7 @@ def prepare_publications(publications, manuel_matches):
         if isinstance(classifications, list) and classifications:
             for classification in classifications:
                 if classification.get('reference') == 'wikidata':
-                    entity_linked.append(classification.get('code'))
+                    entity_linked.append('wikidata'+classification.get('code'))
 
         entity_linked = [e for e in list(set(entity_linked)) if e]
         new_elt['entity_linked'] = entity_linked
@@ -296,7 +296,8 @@ def match(author_key, idx=None):
                 p['person_id'] = {'id': aut['id'], 'method': 'input'}
 
     # 2. matching par associations d'éléments communs : coauteurs, keywords, issn ...
-    publications = association_match(publications, author_key)
+    associated = association_match(publications, author_key)
+    publications = associated['publications']
 
     # 3. on complète par des match idref direct sur nom / prenom
     missing_ids = 0
@@ -350,4 +351,5 @@ def match(author_key, idx=None):
     idrefs = list(set(idrefs))
     if idrefs:
         requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download}) 
+    return results
         
