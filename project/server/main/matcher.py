@@ -52,6 +52,13 @@ def match_all(author_keys):
 
 def pre_process_publications(args):
     index_name = args.get('index')
+
+        # TODO : put in person-matcher
+        #os.system(f'rm -rf {enriched_output_file}')
+        #for f in is os.listdir('/upw_data/'):
+        #    if f.startswith(f'{split_prefix})' and '_extract' not in f:
+        #        os.system(f'cat /upw_data/{f} >> {enriched_output_file}')
+    
     logger.debug('dropping collection person_matcher_input')
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']

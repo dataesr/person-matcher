@@ -2,6 +2,7 @@ from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
 from project.server.main.utils import chunks, to_jsonl, to_json
+from project.server.main.s3 import upload_object
 
 import pysftp
 import requests
@@ -111,15 +112,17 @@ def export_scanr(args):
     mycoll = mydb[collection_name]
     mycoll.create_index('authors.person')
     myclient.close()
-    
+    os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons.jsonl') 
     for idref in idrefs:
         person = export_one_person(idref, input_dict, ix)
-        to_json([person], f'{MOUNTED_VOLUME}scanr/persons.json', ix)
+        to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons.jsonl')
         ix += 1
-    with open(scanr_output_file, 'a') as outfile:
-        outfile.write(']')
+    #with open(scanr_output_file, 'a') as outfile:
+    #    outfile.write(']')
     index_name = args.get('index')
-    upload_sword(index_name)
+    os.system(f'cd {MOUNTED_VOLUME}scanr && gzip persons.jsonl')
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons.jsonl.gz', destination='production/persons.jsonl.gz')
+    #upload_sword(index_name)
 
 def export_one_person(idref, input_dict, ix):
     prizes, links, externalIds = [], [], []
