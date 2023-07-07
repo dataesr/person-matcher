@@ -40,7 +40,9 @@ def get_publications_from_author_key(author_key):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     mycoll = mydb['person_matcher_input']
-    return list(mycoll.find({'authors.author_key': author_key}))
+    res = list(mycoll.find({'authors.author_key': author_key}))
+    myclient.close()
+    return res
 
 
 def match_all(author_keys):
@@ -58,6 +60,7 @@ def pre_process_publications(args):
     
     logger.debug('dropping collection person_matcher_output')
     mydb['person_matcher_output'].drop()
+    myclient.close()
 
     manuel_matches = get_manual_match()
 
@@ -255,6 +258,7 @@ def save_to_mongo_preprocessed(relevant_infos):
     mycol.create_index('authors.author_key')
     logger.debug(f'Deleting {output_json}')
     os.remove(output_json)
+    myclient.close()
 
 def save_to_mongo_results(results, author_key):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -273,6 +277,7 @@ def save_to_mongo_results(results, author_key):
     mycol.create_index('person_id')
     logger.debug(f'Deleting {output_json}')
     os.remove(output_json)
+    myclient.close()
 
 def match(author_key, idx=None):
 

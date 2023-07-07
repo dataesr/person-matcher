@@ -80,6 +80,7 @@ def get_publications_for_idref(idref):
         del r['_id']
         res.append(r)
     cursor.close()
+    myclient.close()
     return res
 
 def export_scanr(args):
@@ -109,6 +110,7 @@ def export_scanr(args):
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     mycoll.create_index('authors.person')
+    myclient.close()
     
     for idref in idrefs:
         person = export_one_person(idref, input_dict, ix)
