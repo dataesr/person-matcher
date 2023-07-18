@@ -120,7 +120,7 @@ def export_scanr(args):
     #with open(scanr_output_file, 'a') as outfile:
     #    outfile.write(']')
     index_name = args.get('index')
-    os.system(f'cd {MOUNTED_VOLUME}scanr && gzip persons.jsonl')
+    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons.jsonl.gz && gzip persons.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons.jsonl.gz', destination='production/persons.jsonl.gz')
     #upload_sword(index_name)
 

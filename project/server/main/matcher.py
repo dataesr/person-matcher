@@ -53,6 +53,8 @@ def match_all(author_keys):
 def pre_process_publications(args):
     index_name = args.get('index')
 
+    # files are splitted in /upw_data/...
+
         # TODO : put in person-matcher
         #os.system(f'rm -rf {enriched_output_file}')
         #for f in is os.listdir('/upw_data/'):
