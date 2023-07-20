@@ -19,5 +19,5 @@ def upload_object(container: str, source: str, destination: str) -> str:
     logger.debug(f'Uploading {source} in {container} as {destination}')
     data = open(f'{source}', 'rb')
   
-    client.put_object(Key=destination, Body=data, Bucket=container)
+    client.put_object(Key=destination, Body=data, Bucket=container, ACL='public-read')
     return f'ok: 1'

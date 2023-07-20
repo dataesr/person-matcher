@@ -122,6 +122,7 @@ def export_scanr(args):
     index_name = args.get('index')
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons.jsonl.gz && gzip persons.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons.jsonl.gz', destination='production/persons.jsonl.gz')
+    #upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/publications.jsonl.gz', destination='production/publications.jsonl.gz')
     #upload_sword(index_name)
 
 def export_one_person(idref, input_dict, ix):
