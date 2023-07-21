@@ -55,10 +55,11 @@ def run_task_match_all():
     author_keys = json.load(open(f'{MOUNTED_VOLUME}/author_keys.json', 'r'))
     logger.debug(f'There are {len(author_keys)} author_keys')
     author_keys_chunks = list(chunks(lst=author_keys, n=100))
+    harvest_sudoc = args.get('harvest_sudoc', False)
     for chunk in author_keys_chunks:
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=2160000)
-            task = q.enqueue(match_all, chunk)
+            task = q.enqueue(match_all, chunk, harvest_sudoc)
 
     response_object = {
         "status": "success",

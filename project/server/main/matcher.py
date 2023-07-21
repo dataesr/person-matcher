@@ -45,10 +45,10 @@ def get_publications_from_author_key(author_key):
     return res
 
 
-def match_all(author_keys):
+def match_all(author_keys, harvest_sudoc):
 
-    for author_key in author_keys:
-        match(author_key)
+    for idx, author_key in eumerate(author_keys):
+        match(author_key = author_key, idx=idx, harvest_sudoc=harvest_sudoc)
 
 def pre_process_publications(args):
     index_name = args.get('index')
@@ -288,7 +288,7 @@ def save_to_mongo_results(results, author_key):
     os.remove(output_json)
     myclient.close()
 
-def match(author_key, idx=None):
+def match(author_key, idx=None, harvest_sudoc=False):
 
     force_download = True
 
@@ -363,7 +363,7 @@ def match(author_key, idx=None):
                 })
     save_to_mongo_results(results, author_key)
     idrefs = list(set(idrefs))
-    if idrefs:
+    if idrefs and harvest_sudoc:
         requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download}) 
     return results
         
