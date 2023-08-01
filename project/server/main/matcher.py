@@ -47,19 +47,24 @@ def get_publications_from_author_key(author_key):
 
 def match_all(author_keys, harvest_sudoc):
 
-    for idx, author_key in eumerate(author_keys):
+    for idx, author_key in enumerate(author_keys):
         match(author_key = author_key, idx=idx, harvest_sudoc=harvest_sudoc)
 
 def pre_process_publications(args):
     index_name = args.get('index')
 
-    # files are splitted in /upw_data/...
-
-        # TODO : put in person-matcher
-        #os.system(f'rm -rf {enriched_output_file}')
-        #for f in is os.listdir('/upw_data/'):
-        #    if f.startswith(f'{split_prefix})' and '_extract' not in f:
-        #        os.system(f'cat /upw_data/{f} >> {enriched_output_file}')
+    # files are splitted in /upw_data/scanr-split (from the transform step in scanr-publications)...
+    enriched_file = f'{MOUNTED_VOLUME}/{index_name}.jsonl'
+    os.system(f'rm -rf {enriched_file}')
+    split_prefix = f'{index_name}_split_'
+    files_to_concat = []
+    for f in os.listdir('/upw_data/scanr-split'):
+        if f.startswith(f'{split_prefix}') and '_extract' not in f:
+            files_to_concat.append(f'/upw_data/scanr-split/{f}')
+    files_to_concat.sort()
+    for f in files_to_concat:
+        logger.debug(f'concatenating {f} into {enriched_file}')
+        os.system(f'cat {f} >> {enriched_file}')
     
     logger.debug('dropping collection person_matcher_input')
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -73,7 +78,7 @@ def pre_process_publications(args):
 
     manuel_matches = get_manual_match()
 
-    df_all = pd.read_json(f'{MOUNTED_VOLUME}/{index_name}.jsonl', lines=True, chunksize=25000)
+    df_all = pd.read_json(enriched_file, lines=True, chunksize=25000)
     author_keys = []
     ix = 0
     for df in df_all:

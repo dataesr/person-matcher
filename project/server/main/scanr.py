@@ -102,8 +102,6 @@ def export_scanr(args):
         input_dict[e['id'].replace('idref','')] = e
     # add extra idref 
     idrefs.update(input_dict.keys())
-    scanr_output_file = f'{MOUNTED_VOLUME}scanr/persons.json'
-    os.system(f'rm -rf {scanr_output_file}')
     ix = 0
 
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -117,13 +115,8 @@ def export_scanr(args):
         person = export_one_person(idref, input_dict, ix)
         to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons.jsonl')
         ix += 1
-    #with open(scanr_output_file, 'a') as outfile:
-    #    outfile.write(']')
-    index_name = args.get('index')
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons.jsonl.gz && gzip persons.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons.jsonl.gz', destination='production/persons.jsonl.gz')
-    #upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/publications.jsonl.gz', destination='production/publications.jsonl.gz')
-    #upload_sword(index_name)
 
 def export_one_person(idref, input_dict, ix):
     prizes, links, externalIds = [], [], []
