@@ -295,7 +295,8 @@ def save_to_mongo_results(results, author_key):
 
 def match(author_key, idx=None, harvest_sudoc=False):
 
-    force_download = True
+    force_download = False
+    force_parsing = True
 
     if idx:
         logger.debug(f'match author_key number {idx}')
@@ -369,6 +370,6 @@ def match(author_key, idx=None, harvest_sudoc=False):
     save_to_mongo_results(results, author_key)
     idrefs = list(set(idrefs))
     if idrefs and harvest_sudoc:
-        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download}) 
+        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download, 'force_parsing': force_parsing}) 
     return results
         
