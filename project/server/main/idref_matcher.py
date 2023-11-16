@@ -102,11 +102,12 @@ def analyze_doc(doc, first_name_normalized, last_name_normalized, full_name_norm
     match_naissance = True
     try:
         siecle_naissance = 0
-        naissance_elt = doc.find('date', {'name': 'datenaissance_dt'})
-        if naissance_elt:
-            siecle_naissance = int(naissance_elt.get_text()[0:2])
-            if siecle_naissance not in [19, 20]:
-                match_naissance = False
+        for f in ['datenaissance_dt', 'datemort_dt', 'anneemort_dt', 'anneenaissance_dt']:
+            naissance_elt = doc.find('date', {'name': f})
+            if naissance_elt:
+                siecle_naissance = str(naissance_elt.get_text()[0:2])
+                if siecle_naissance not in ['19', '20']:
+                    match_naissance = False
     except:
         pass
     
