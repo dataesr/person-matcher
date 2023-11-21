@@ -307,6 +307,7 @@ def match(author_key, idx=None, harvest_sudoc=False):
     #    publications = prepare_publications(publications)
 
     # 1. on commence par mettre les ids déjà connus
+    idref_to_firstname={}
     for p in publications:
         authors = p.get('authors')
         if not isinstance(authors, list):
@@ -314,9 +315,12 @@ def match(author_key, idx=None, harvest_sudoc=False):
         for aut in authors:
             if aut.get('author_key') == author_key and isinstance(aut.get('id'), str):
                 p['person_id'] = {'id': aut['id'], 'method': 'input'}
+                if aut.get('first_name') and len(aut.get('first_name'))>2:
+                    first_name = aut['first_name']
+                    idref_to_firstname[aut['id']] = normalize(first_name)
 
     # 2. matching par associations d'éléments communs : coauteurs, keywords, issn ...
-    associated = association_match(publications, author_key)
+    associated = association_match(publications, author_key, idref_to_firstname)
     publications = associated['publications']
 
     # 3. on complète par des match idref direct sur nom / prenom
