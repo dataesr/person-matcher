@@ -1,6 +1,6 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
-from project.server.main.utils_swift import download_object
+from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data
@@ -80,6 +80,17 @@ def export_scanr2(args):
     
     load_scanr_persons('/upw_data/scanr/persons_denormalized.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
 
+def clean_sudoc(idref, publications):
+    sudoc_only = True
+    for e in publications:
+        if 'sudoc' not in e['id']:
+            sudoc_only=False
+            return
+    logger.debug(f'clean {idref}, sudoc only')
+    for sudoc_id in [e['id'] for e in publications]:
+        delete_object('sudoc', f'parsed/{sudoc_id[-2:]}/{sudoc_id}.json')
+
+
 def export_one_person(idref, input_dict, df_orga, ix):
     prizes, links, externalIds = [], [], []
     if idref in input_dict:
@@ -88,6 +99,7 @@ def export_one_person(idref, input_dict, df_orga, ix):
         links = current_data.get('links')
         externalIds = current_data.get('externalIds')
     publications = get_publications_for_idref(f'idref{idref}')
+    clean_sudoc(f'idref{idref}', publications)
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
     domains, co_authors, author_publications = [], [], []
     co_authors_id = set([])

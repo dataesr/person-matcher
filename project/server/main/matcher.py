@@ -358,10 +358,9 @@ def match(author_key, idx=None, harvest_sudoc=False):
 
     # TODO : n'ajouter que les match qui ne sont pas déjà en base !
     results = []
-    idrefs = []
+    idrefs_to_harvest = []
     for p in publications:
         if p.get('person_id'):
-            idrefs.append(p['person_id']['id'].replace('idref',''))
             results.append({
                 'publication_id': p['id'],
                 'year': p.get('year'),
@@ -371,9 +370,12 @@ def match(author_key, idx=None, harvest_sudoc=False):
                 'person_id': p['person_id']['id'],
                 'person_id_match_method': p['person_id']['method']
                 })
+            # harvest from sudoc only if one publi also not from sudoc
+            if 'sudoc' not in p['id']:
+                idrefs_to_harvest.append(p['person_id']['id'].replace('idref',''))
     save_to_mongo_results(results, author_key)
-    idrefs = list(set(idrefs))
-    if idrefs and harvest_sudoc:
-        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs, 'force_download': force_download, 'force_parsing': force_parsing}) 
+    idrefs_to_harvest = list(set(idrefs_to_harvest))
+    if idrefs_to_harvest and harvest_sudoc:
+        requests.post(f'{SUDOC_SERVICE}/harvest', json={'idrefs': idrefs_to_harvest, 'force_download': force_download, 'force_parsing': force_parsing}) 
     return results
         

@@ -60,3 +60,8 @@ def download_object(container: str, filename: str, out: str) -> None:
     logger.debug(f'Downloading {filename} from {container} to {out}')
     cmd = init_cmd + f' download {container} {filename} -o {out} --skip-identical'
     os.system(cmd)
+
+def delete_object(container: str, filename: str) -> None:
+    logger.debug(f'Deleting {filename} from {container}')
+    cmd = init_cmd + f' delete {container} {filename}'
+    os.system(cmd)
