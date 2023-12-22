@@ -59,10 +59,14 @@ def load_orga():
     map_proj_orga =get_link_orga_projects()
     os.system('rm -rf /upw_data/scanr/organizations_denormalized.jsonl')
     for ix, p in enumerate(orga):
+        new_p = p.copy()
         logger.debug(f"denormalize orga {p['id']} ({ix}/{len(orga)})")
-        p['publications'] = get_publications_for_affiliation(p['id'])
-        p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
-    to_jsonl(orga, '/upw_data/scanr/organizations_denormalized.jsonl')
+        new_p['publications'] = get_publications_for_affiliation(p['id'])
+        new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
+        nb_publis = len(new_p['publications'])
+        nb_projects = len(new_p['projects'])
+        logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}')
+        to_jsonl([new_p], '/upw_data/scanr/organizations_denormalized.jsonl')
     load_scanr_orga( '/upw_data/scanr/organizations_denormalized.jsonl', 'scanr-organizations-20231211')
 
 def load_scanr_orga(scanr_output_file_denormalized, index_name):
