@@ -6,13 +6,14 @@ from project.server.main.s3 import upload_object
 
 import pysftp
 import requests
+import dateutil
 from bs4 import BeautifulSoup
 import os
 import json
 import pymongo
 import pandas as pd
 from retry import retry
-from dateutil import parser
+import dateutil.parser
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
@@ -113,7 +114,8 @@ def export_scanr(args):
     os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons.jsonl') 
     for idref in idrefs:
         person = export_one_person(idref, input_dict, ix)
-        to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons.jsonl')
+        if person:
+            to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons.jsonl')
         ix += 1
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons.jsonl.gz && gzip persons.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons.jsonl.gz', destination='production/persons.jsonl.gz')
@@ -127,6 +129,8 @@ def export_one_person(idref, input_dict, ix):
         links = current_data.get('links')
         externalIds = current_data.get('externalIds')
     publications = get_publications_for_idref(f'idref{idref}')
+    if len(publications)==0:
+        return None
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
     domains, co_authors, author_publications = [], [], []
     affiliations, names, keywords = {}, {}, {}
@@ -206,9 +210,9 @@ def export_one_person(idref, input_dict, ix):
                 award['label'] = p['prize_name']
             if p.get('prize_date'):
                 try:
-                    award['date'] = dateutil.parser.parse(p['prize_date']).isoformat()
+                    award['date'] = dateutil.parser.parse(p['prize_date'].strip()).isoformat()
                 except:
-                    logger.debug(f"award date not valid : {p['prize_date']}")
+                    logger.debug(f"award date not valid : ;{p['prize_date']}; {idref}")
             if p.get('prize_url'):
                 award['url'] = p['prize_url']
             if award:

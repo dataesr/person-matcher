@@ -46,9 +46,9 @@ def get_publications_from_author_key(author_key):
 
 
 def match_all(author_keys, harvest_sudoc):
-
     for idx, author_key in enumerate(author_keys):
         match(author_key = author_key, idx=idx, harvest_sudoc=harvest_sudoc)
+    index_results()
 
 def pre_process_publications(args):
     index_name = args.get('index')
@@ -89,6 +89,7 @@ def pre_process_publications(args):
         author_keys += prepared['author_keys']
         author_keys = list(set(author_keys))
         ix += 1
+    index_preprocessed()
     logger.debug(f'{len(author_keys)} author_keys detected')
     json.dump(author_keys, open(f'{MOUNTED_VOLUME}/author_keys.json', 'w'))
 
@@ -267,11 +268,19 @@ def save_to_mongo_preprocessed(relevant_infos):
                   f' --collection {collection_name}'
     logger.debug(f'{mongoimport}')
     os.system(mongoimport)
+    #mycol = mydb[collection_name]
+    #mycol.create_index('authors.author_key')
+    logger.debug(f'Deleting {output_json}')
+    os.remove(output_json)
+    myclient.close()
+
+def index_preprocessed():
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'person_matcher_input'
     logger.debug(f'Checking indexes on collection {collection_name}')
     mycol = mydb[collection_name]
     mycol.create_index('authors.author_key')
-    logger.debug(f'Deleting {output_json}')
-    os.remove(output_json)
     myclient.close()
 
 def save_to_mongo_results(results, author_key):
@@ -284,13 +293,19 @@ def save_to_mongo_results(results, author_key):
                   f' --collection {collection_name}'
     logger.debug(f'{mongoimport}')
     os.system(mongoimport)
+    logger.debug(f'Deleting {output_json}')
+    os.remove(output_json)
+    myclient.close()
+
+def index_results():
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'person_matcher_output'
     logger.debug(f'Checking indexes on collection {collection_name}')
     mycol = mydb[collection_name]
     mycol.create_index('publication_id')
     mycol.create_index('author_key')
     mycol.create_index('person_id')
-    logger.debug(f'Deleting {output_json}')
-    os.remove(output_json)
     myclient.close()
 
 def match(author_key, idx=None, harvest_sudoc=False):

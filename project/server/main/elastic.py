@@ -45,6 +45,12 @@ def get_analyzers() -> dict:
                 'french_elision',
                 'icu_folding'
             ]
+        },
+        'html_analyzer': {
+          "tokenizer": "keyword",
+          "char_filter": [
+            "html_strip"
+          ]
         }
     }
 
@@ -70,7 +76,9 @@ def reset_index_scanr(index: str) -> None:
     }
     
     mappings = { 'properties': {} }
-    for f in ['firstName', 'lastName', 'fullName']:
+    for f in ['firstName', 'lastName', 'fullName', 'label.fr', 'label.en', 'label.default', 'alias', 'leaders.firstName', 'leaders.lastName', 
+            'institutions.label', 'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
+            'participants.label.default']:
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'light',
@@ -80,10 +88,16 @@ def reset_index_scanr(index: str) -> None:
                     }
                 }
             }
-    for f in []: 
+    for f in ['address.address', 'address.city', 'address.country', 'description.fr', 'description.en', 'description.default']: 
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'light',
+            }
+    
+    for f in ['web_content']: 
+        mappings['properties'][f] = { 
+                'type': 'text',
+                'analyzer': 'html_analyzer',
             }
 
     dynamic_match = None
@@ -108,6 +122,9 @@ def reset_index_scanr(index: str) -> None:
     if 'acknowledged' in response and response['acknowledged']:
         response = str(response['index'])
         logger.debug(f'Index mapping success for index: {response}')
+    else:
+        logger.debug(f'ERROR !')
+        logger.debug(response)
 
 @exception_handler
 def load_in_es(data: list, index: str) -> list:

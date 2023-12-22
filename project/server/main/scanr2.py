@@ -7,6 +7,7 @@ from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr
 
+import dateutil.parser
 import pysftp
 import requests
 from bs4 import BeautifulSoup
@@ -15,7 +16,6 @@ import json
 import pymongo
 import pandas as pd
 from retry import retry
-from dateutil import parser
 from urllib import parse
 
 logger = get_logger(__name__)
@@ -32,7 +32,22 @@ def get_publications_for_idref(idref):
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
-    cursor = mycoll.find({ 'authors.person' : { '$in': [idref] } })
+    cursor = mycoll.find({ 'authors.person' : { '$in': [idref] } }).limit(5000)
+    for r in cursor:
+        del r['_id']
+        res.append(r)
+    cursor.close()
+    myclient.close()
+    return res
+
+@retry(delay=200, tries=3)
+def get_publications_for_affiliation(aff):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    res = []
+    cursor = mycoll.find({ 'affiliations' : { '$in': [aff] } }).limit(5000)
     for r in cursor:
         del r['_id']
         res.append(r)
@@ -73,22 +88,13 @@ def export_scanr2(args):
         df_orga = get_orga_data()
         for idref in idrefs:
             person = export_one_person(idref, input_dict, df_orga, ix)
-            to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
+            if person:
+                to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
             ix += 1
         os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons_denormalized.jsonl.gz && gzip -k persons_denormalized.jsonl')
         upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl.gz', destination='production/persons_denormalized.jsonl.gz')
     
     load_scanr_persons('/upw_data/scanr/persons_denormalized.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
-
-def clean_sudoc(idref, publications):
-    sudoc_only = True
-    for e in publications:
-        if 'sudoc' not in e['id']:
-            sudoc_only=False
-            return
-    logger.debug(f'clean {idref}, sudoc only')
-    for sudoc_id in [e['id'] for e in publications]:
-        delete_object('sudoc', f'parsed/{sudoc_id[-2:]}/{sudoc_id}.json')
 
 
 def export_one_person(idref, input_dict, df_orga, ix):
@@ -99,7 +105,8 @@ def export_one_person(idref, input_dict, df_orga, ix):
         links = current_data.get('links')
         externalIds = current_data.get('externalIds')
     publications = get_publications_for_idref(f'idref{idref}')
-    clean_sudoc(f'idref{idref}', publications)
+    if len(publications)==0:
+        return None
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
     domains, co_authors, author_publications = [], [], []
     co_authors_id = set([])
@@ -118,7 +125,7 @@ def export_one_person(idref, input_dict, df_orga, ix):
         if isinstance(p.get('authors', []), list):
             for a in p.get('authors', []):
                 if a.get(person_id_key) == 'idref'+idref:
-                    author_publications.append({'publication': p['id'], 'role': a.get('role', 'author')})
+                    author_publications.append({'publication': p['id'], 'role': a.get('role', 'author'), 'title': p['title'], 'year': p.get('year'), 'source':p.get('source')})
                     key = None
                     if a.get('firstName') and a.get('lastName'):
                         key = f"FIRST_LAST;{a.get('firstName')};{a.get('lastName')}"

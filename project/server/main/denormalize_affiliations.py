@@ -36,6 +36,34 @@ def get_projects_data():
         proj_map[elt['id']] = res
     return proj_map
 
+def get_link_orga_projects():
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
+    df = pd.read_json(url, lines=True)
+    data = df.to_dict(orient='records')
+    proj_map = {}
+    for elt in data:
+        res = {}
+        for e in ['id', 'label', 'acronym', 'type', 'year']:
+            if elt.get(e):
+                res[e] = elt[e]
+        proj_map[elt['id']] = res
+    map_orga_proj = {}
+    for proj in data:
+        proj_id = proj['id']
+        for part in proj.get('participants'):
+            if part.get('structure'):
+                orga_id = part['structure']
+                if orga_id not in map_orga_proj:
+                    map_orga_proj[orga_id] = []
+                current_proj = proj_map[proj_id]
+                map_orga_proj[orga_id].append(current_proj)
+    return map_orga_proj
+
+def get_project_from_orga(map_orga_proj, orga_id):
+    if orga_id in map_orga_proj:
+        return map_orga_proj[orga_id]
+    return []
+
 def get_project(proj_map, proj_id):
     if proj_id in proj_map:
         return proj_map[proj_id]
