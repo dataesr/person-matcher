@@ -34,7 +34,7 @@ def run_task_scanr_other():
     if args.get('orga'):
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=21600000)
-            task = q.enqueue(load_orga)
+            task = q.enqueue(load_orga, args)
     response_object = {
         "status": "success",
         "data": {

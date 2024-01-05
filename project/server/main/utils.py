@@ -9,6 +9,19 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def clean_json(elt):
+    if isinstance(elt, dict):
+        keys = list(elt.keys()).copy()
+        for f in keys:
+            if (not elt[f] == elt[f]) or (elt[f] is None):
+                del elt[f]
+            else:
+                elt[f] = clean_json(elt[f])
+    elif isinstance(elt, list):
+        for ix, k in enumerate(elt):
+            elt[ix] = clean_json(elt[ix])
+    return elt
+
+def clean_json_old(elt):
     keys = list(elt.keys()).copy()
     for f in keys:
         if isinstance(elt[f], dict):

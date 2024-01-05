@@ -23,6 +23,12 @@ def delete_index(index: str) -> None:
     response = es.indices.delete(index=index, ignore=[400, 404])
     logger.debug(response)
 
+@exception_handler
+def refresh_index(index):
+    logger.debug(f'Refreshing {index}')
+    es = get_client()
+    response = es.indices.refresh(index=index)
+    logger.debug(response)
 
 @exception_handler
 def update_alias(alias: str, old_index: str, new_index: str) -> None:

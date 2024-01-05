@@ -5,7 +5,7 @@ from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
-from project.server.main.elastic import reset_index_scanr
+from project.server.main.elastic import reset_index_scanr, refresh_index
 
 import dateutil.parser
 import pysftp
@@ -55,6 +55,12 @@ def get_publications_for_affiliation(aff):
     myclient.close()
     return res
 
+def get_not_to_export_idref():
+    url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3-9XtV2COdSWjouhB7d7NTpK6jwlLXSQ2QtpkOYdFAxo2Nesp3FKDg714qbmsbMFjZnJeFNhzSkq6/pub?gid=0&single=true&output=csv'
+    df = pd.read_csv(url)
+    excluded = df['id'].dropna().apply(lambda x:x.replace('idref','')).to_list()
+    return set(excluded)
+
 def export_scanr2(args):
     index_name = args.get('index')
     if args.get('new_idrefs', True):
@@ -76,6 +82,7 @@ def export_scanr2(args):
             input_dict[e['id'].replace('idref','')] = e
         # add extra idref 
         idrefs.update(input_dict.keys())
+        logger.debug(f'{len(idrefs)} idrefs after vip')
         ix = 0
 
         myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -86,7 +93,11 @@ def export_scanr2(args):
         myclient.close()
         os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
         df_orga = get_orga_data()
+        excluded = get_not_to_export_idref()
         for idref in idrefs:
+            if idref in excluded:
+                logger.debug(f'exclude idref {idref}')
+                continue
             person = export_one_person(idref, input_dict, df_orga, ix)
             if person:
                 to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
@@ -118,7 +129,9 @@ def export_one_person(idref, input_dict, df_orga, ix):
             year = str(int(year)).replace('.0', '')
         if isinstance(p.get('domains'), list):
             for d in p.get('domains', []):
-                domain_key = d.get('label', {}).get('default', '').lower().strip() + ';' + d.get('code', 'nocode') + ';' + d.get('type', 'notype') 
+                domain_key = d.get('label', {}).get('default', '').lower().strip() + ';' + d.get('code', 'nocode') + ';' + d.get('type', 'notype')
+                if len(domain_key) > 200:
+                    continue
                 if domain_key not in domainsCount:
                     domainsCount[domain_key] = {'count': 0, 'domain': d}
                 domainsCount[domain_key]['count'] += 1
@@ -270,7 +283,8 @@ def load_scanr_persons(scanr_output_file_denormalized, index_name):
     es_host = f'https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}'
     logger.debug('loading scanr-persons index')
     reset_index_scanr(index=index_name)
-    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 500 " + "--transform='doc._source=Object.assign({},doc)'"
+    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 500 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
     logger.debug(f'{elasticimport}')
     logger.debug('starting import in elastic')
     os.system(elasticimport)
+    refresh_index(index_name)
