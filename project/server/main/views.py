@@ -10,7 +10,9 @@ from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications, match_all
 from project.server.main.scanr import export_scanr, upload_sword
 from project.server.main.scanr2 import export_scanr2
-from project.server.main.projects import load_project, load_orga
+from project.server.main.projects import load_projects
+from project.server.main.patents import load_patents
+from project.server.main.organisations import load_orga
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -30,7 +32,11 @@ def run_task_scanr_other():
     if args.get('projects'):
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=21600000)
-            task = q.enqueue(load_project)
+            task = q.enqueue(load_projects, args)
+    if args.get('patents'):
+        with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+            q = Queue("person-matcher", default_timeout=21600000)
+            task = q.enqueue(load_patents, args)
     if args.get('orga'):
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=21600000)
