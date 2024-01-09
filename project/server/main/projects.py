@@ -63,8 +63,11 @@ def load_orga(args):
         for ix, p in enumerate(orga):
             new_p = p.copy()
             logger.debug(f"denormalize orga {p['id']} ({ix}/{len(orga)})")
-            new_p['publications'] = get_publications_for_affiliation(p['id'])
+            publications_data = get_publications_for_affiliation(p['id'])
+            new_p['publications'] = publications_data['publications']
+            new_p['publicationsCount'] = publications_data['count']
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
+            new_p['projectsCount'] = len(new_p['projects'])
             nb_publis = len(new_p['publications'])
             nb_projects = len(new_p['projects'])
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}')

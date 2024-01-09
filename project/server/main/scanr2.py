@@ -47,13 +47,14 @@ def get_publications_for_affiliation(aff):
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
+    count = mycoll.count_documents({ 'affiliations' : { '$in': [aff] } })
     cursor = mycoll.find({ 'affiliations' : { '$in': [aff] } }).limit(5000)
     for r in cursor:
         del r['_id']
         res.append(r)
     cursor.close()
     myclient.close()
-    return res
+    return {'count': count, 'publications': res}
 
 def get_not_to_export_idref():
     url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3-9XtV2COdSWjouhB7d7NTpK6jwlLXSQ2QtpkOYdFAxo2Nesp3FKDg714qbmsbMFjZnJeFNhzSkq6/pub?gid=0&single=true&output=csv'
@@ -176,7 +177,7 @@ def export_one_person(idref, input_dict, df_orga, ix):
     for d in list(domainsCount.values()):
         domains.append(d['domain'])
     domains = sorted(domains, key=lambda e:e['count'], reverse=True)
-    person = {'id': f'idref{idref}', 'coContributors': co_authors, 'publications': author_publications, 'domains': domains}
+    person = {'id': f'idref{idref}', 'coContributors': co_authors, 'publications': author_publications, 'domains': domains, 'publicationsCount': len(author_publications)}
     affiliations = [a for a in list(affiliations.values()) if a.get('startDate')]
     affiliations = sorted(affiliations, key=lambda e:e.get('startDate'), reverse=True)
     for a in affiliations:
