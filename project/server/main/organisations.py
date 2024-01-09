@@ -37,7 +37,7 @@ def load_orga(args):
             new_p['publicationsCount'] = publications_data['count']
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
             new_p['projectsCount'] = len(new_p['projects'])
-            nb_publis = len(new_p['publications'])
+            nb_publis = new_p['publicationsCount']
             nb_projects = len(new_p['projects'])
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}')
             for f in ['institutions', 'predecessors', 'spinoffs', 'relations']:
