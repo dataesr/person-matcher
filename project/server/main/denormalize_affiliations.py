@@ -3,6 +3,18 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
+def get_main_address(address):
+    main_add = None
+    for add in address:
+        if add.get('main', '') is True:
+            main_add = add.copy()
+            break
+    if main_add:
+        for f in ['main', 'citycode', 'urbanUnitCode', 'urbanUnitLabel', 'localisationSuggestions', 'provider', 'score']:
+            if main_add.get(f):
+                del main_add[f]
+    return main_add
+
 def get_orga_data():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
     df = pd.read_json(url, lines=True)
@@ -12,9 +24,11 @@ def get_orga_data():
     for elt in data:
         res = {}
         #for e in ['id', 'kind', 'label', 'acronym', 'nature', 'status', 'isFrench', 'address']:
-        for e in ['id', 'kind', 'label', 'acronym', 'address']:
+        for e in ['id', 'kind', 'label', 'acronym', 'isFrench', 'status']:
             if elt.get(e):
                 res[e] = elt[e]
+            if isinstance(elt.get('address'), list):
+                res['mainAddress'] = get_main_address(elt['address'])
         orga_map[elt['id']] = res
     return orga_map
 

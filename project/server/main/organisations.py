@@ -22,15 +22,41 @@ from urllib import parse
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
+def compute_reverse_relations(data):
+    reverse_relation_fields = ['parents', 'institutions', 'relations', 'predecessors']
+    reverse_relation={}
+    for f in reverse_relation_fields:
+        reverse_relation[f] = {}
+
+    for e in data:
+        current_id = e['id']
+        for f in reverse_relation_fields:
+            if isinstance(e.get(f), list) and e[f]:
+                for reversed_elt in e[f]:
+                    reversed_elt_id = reversed_elt.get('structure')
+                    if reversed_elt_id:
+                        if reversed_elt_id not in reverse_relation[f]:
+                            reverse_relation[f][reversed_elt_id] = []
+                        new_reverse = reversed_elt.copy()
+                        new_reverse['structure'] = current_id
+                        reverse_relation[f][reversed_elt_id].append(new_reverse)
+    return reverse_relation
+
 def load_orga(args):
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
         orga = df.to_dict(orient='records')
+        reverse_relation = compute_reverse_relations(orga)
         map_proj_orga =get_link_orga_projects()
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
             new_p = p.copy()
+            current_id = new_p['id']
+            for f in ['parents', 'institutions', 'relations']:
+                if current_id in reverse_relation[f]:
+                    new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]
+                    logger.debug(f'{f[0:-1]}Of {len(reverse_relation[f][current_id])}')
             logger.debug(f"denormalize orga {p['id']} ({ix}/{len(orga)})")
             publications_data = get_publications_for_affiliation(p['id'])
             new_p['publications'] = publications_data['publications']
@@ -40,13 +66,17 @@ def load_orga(args):
             nb_publis = new_p['publicationsCount']
             nb_projects = len(new_p['projects'])
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}')
-            for f in ['institutions', 'predecessors', 'spinoffs', 'relations']:
-                if not isinstance(new_p[f], list):
+            for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
+                if not isinstance(new_p.get(f), list):
                     continue
                 for ix, e in enumerate(new_p[f]):
                     if isinstance(e, dict) and isinstance(e.get('structure'), str):
                         current_id = e.get('structure')
                         new_p[f][ix]['denormalized'] = get_orga(df_orga, current_id)
+                if f not in ['predecessors']:
+                    new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
+            if new_p.get('spinoffs'):
+                del new_p['spinoffs']
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized.jsonl')
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', 'scanr-organizations-20231211')
 
