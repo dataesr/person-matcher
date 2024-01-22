@@ -57,6 +57,14 @@ def get_analyzers() -> dict:
           "char_filter": [
             "html_strip"
           ]
+        },
+        "autocomplete": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "autocomplete_filter"
+          ]
         }
     }
 
@@ -66,6 +74,11 @@ def get_filters() -> dict:
             'type': 'elision',
             'articles_case': True,
             'articles': ['l', 'm', 't', 'qu', 'n', 's', 'j', 'd', 'c', 'jusqu', 'quoiqu', 'lorsqu', 'puisqu']
+        },
+        "autocomplete_filter": {
+          "type": "edge_ngram",
+          "min_gram": 1,
+          "max_gram": 10
         }
     }
 
@@ -82,8 +95,29 @@ def reset_index_scanr(index: str) -> None:
     }
     
     mappings = { 'properties': {} }
-    for f in ['firstName', 'lastName', 'fullName', 'label.fr', 'label.en', 'label.default', 'alias', 'leaders.firstName', 'leaders.lastName', 
-            'institutions.label', 'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
+
+    mappings['properties']['autocompleted'] = {
+                'type': 'search_as_you_type',
+                'analyzer': 'light'
+            }
+    mappings['properties']['autocompletedText'] = {
+                'type': 'text',
+                'analyzer': 'light'
+            }
+
+
+    for f in ['lastName', 'fullName', 'label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
+        mappings['properties'][f] = { 
+                'type': 'text',
+                'analyzer': 'light',
+                'fields': {
+                    'keyword': {
+                        'type':  'keyword'
+                    }
+                }
+            }
+    for f in ['firstName', 'leaders.firstName', 'leaders.lastName', 
+             'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
             'participants.label.default']:
         mappings['properties'][f] = { 
                 'type': 'text',

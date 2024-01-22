@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
@@ -43,6 +43,7 @@ def compute_reverse_relations(data):
     return reverse_relation
 
 def load_orga(args):
+    index_name = args.get('index_name')
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
@@ -53,6 +54,11 @@ def load_orga(args):
         for ix, p in enumerate(orga):
             new_p = p.copy()
             current_id = new_p['id']
+            mainAddress = get_main_address(p.get('address'))
+            new_is_french = compute_is_french(current_id, mainAddress)
+            if new_is_french != p.get('isFrench'):
+                logger.debug(f"new isFrench for {current_id} {p['isFrench']} ==> {new_is_french}")
+                new_p['isFrench'] = new_is_french
             for f in ['parents', 'institutions', 'relations']:
                 if current_id in reverse_relation[f]:
                     new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]
@@ -78,7 +84,7 @@ def load_orga(args):
             if new_p.get('spinoffs'):
                 del new_p['spinoffs']
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized.jsonl')
-    load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', 'scanr-organizations-20231211')
+    load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', index_name)
 
 def load_scanr_orga(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized.split('/')[-1]

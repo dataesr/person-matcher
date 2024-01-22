@@ -6,7 +6,9 @@ from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
+from project.server.main.vip import get_vip
 
+from datetime import date
 import dateutil.parser
 import pysftp
 import requests
@@ -22,6 +24,8 @@ logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
 person_id_key = 'person'
+
+CURRENT_YEAR = date.today().year
 
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
@@ -76,11 +80,11 @@ def export_scanr2(args):
         df = pd.read_csv(f'{MOUNTED_VOLUME}/output_idrefs.csv')
         idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
         logger.debug(f'{len(idrefs)} idrefs')
-        download_object('misc', 'vip.jsonl', f'{MOUNTED_VOLUME}vip.jsonl')
-        input_idrefs = pd.read_json(f'{MOUNTED_VOLUME}vip.jsonl', lines=True).to_dict(orient='records')
-        input_dict = {}
-        for e in input_idrefs:
-            input_dict[e['id'].replace('idref','')] = e
+        #download_object('misc', 'vip.jsonl', f'{MOUNTED_VOLUME}vip.jsonl')
+        #input_idrefs = pd.read_json(f'{MOUNTED_VOLUME}vip.jsonl', lines=True).to_dict(orient='records')
+        input_dict = get_vip()
+        #for e in input_idrefs:
+        #    input_dict[e['id'].replace('idref','')] = e
         # add extra idref 
         idrefs.update(input_dict.keys())
         logger.debug(f'{len(idrefs)} idrefs after vip')
@@ -177,14 +181,28 @@ def export_one_person(idref, input_dict, df_orga, ix):
     for d in list(domainsCount.values()):
         domains.append(d['domain'])
     domains = sorted(domains, key=lambda e:e['count'], reverse=True)
-    person = {'id': f'idref{idref}', 'coContributors': co_authors, 'publications': author_publications, 'domains': domains, 'publicationsCount': len(author_publications)}
+    top_domains = domains[0:20]
+    person = {'id': f'idref{idref}', 
+            'coContributors': co_authors, 
+            'publications': author_publications, 
+            'domains': domains, 
+            'topDomains': top_domains, 
+            'publicationsCount': len(author_publications)
+            }
     affiliations = [a for a in list(affiliations.values()) if a.get('startDate')]
     affiliations = sorted(affiliations, key=lambda e:e.get('startDate'), reverse=True)
+    recent_affiliations = []
     for a in affiliations:
         if 'sources_id' in a:
             del a['sources_id']
     if affiliations:
         person['affiliations'] = affiliations
+    for aff in affiliations:
+        if aff.get('endDate') and (CURRENT_YEAR - int(aff['endDate'][0:4])) <= 3:
+            if "Structure de recherche" in aff.get('structure', {}).get('kind', []):
+                recent_affiliations.append(aff)
+    if recent_affiliations:
+        person['recentAffiliations'] = recent_affiliations
     if isinstance(prizes, list):
         awards = []
         for p in prizes:
@@ -225,6 +243,16 @@ def export_one_person(idref, input_dict, df_orga, ix):
                 person.update(idref_info)
             except:
                 pass
+    text_to_autocomplete = []
+    for f in ['lastName', 'fullName']:
+        if person.get(f):
+            text_to_autocomplete.append(person[f])
+    for ext in person.get('externalIds', []):
+        if isinstance(ext.get('id'), str):
+            text_to_autocomplete.append(ext['id'])
+    text_to_autocomplete = list(set(text_to_autocomplete))
+    person['autocompleted'] = text_to_autocomplete
+    person['autocompletedText'] = text_to_autocomplete
     return person
                        
 
