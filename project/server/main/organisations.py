@@ -83,6 +83,20 @@ def load_orga(args):
                     new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
             if new_p.get('spinoffs'):
                 del new_p['spinoffs']
+            text_to_autocomplete = []
+            for lang in ['default', 'en', 'fr']:
+                for k in ['label', 'acronym']:
+                    if isinstance(new_p.get(k), dict):
+                        if isinstance(new_p[k].get(lang), str):
+                            text_to_autocomplete.append(new_p[k][lang])
+            if new_p.get('alias'):
+                text_to_autocomplete += new_p['alias']
+            for ext in new_p.get('externalIds', []):
+                if isinstance(ext.get('id'), str):
+                    text_to_autocomplete.append(ext['id'])
+            text_to_autocomplete = list(set(text_to_autocomplete))
+            new_p['autocompleted'] = text_to_autocomplete
+            new_p['autocompletedText'] = text_to_autocomplete
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized.jsonl')
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', index_name)
 
