@@ -30,13 +30,13 @@ CURRENT_YEAR = date.today().year
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
 @retry(delay=200, tries=3)
-def get_publications_for_idref(idref):
+def get_publications_for_idrefs(idrefs):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
-    cursor = mycoll.find({ 'authors.person' : { '$in': [idref] } }).limit(5000)
+    cursor = mycoll.find({ 'authors.person' : { '$in': idrefs } }).limit(10000)
     for r in cursor:
         del r['_id']
         res.append(r)
@@ -99,28 +99,43 @@ def export_scanr2(args):
         os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
         df_orga = get_orga_data()
         excluded = get_not_to_export_idref()
-        for idref in idrefs:
-            if idref in excluded:
-                logger.debug(f'exclude idref {idref}')
-                continue
-            person = export_one_person(idref, input_dict, df_orga, ix)
-            if person:
-                to_jsonl([person], f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
-            ix += 1
+        idref_chunks = chunks(list(idrefs), 150)
+        for idref_chunk in idref_chunks:
+            publications_for_this_chunk = get_publications_for_idrefs([f'idref{g}' for g in idref_chunk])
+            new_persons = []
+            for idref in idref_chunk:
+                if idref in excluded:
+                    logger.debug(f'exclude idref {idref}')
+                    continue
+                author_publications = []
+                for pub in publications_for_this_chunk:
+                    to_add = False
+                    if not isinstance(pub.get('authors'), list):
+                        continue
+                    for aut in pub.get('authors'):
+                        if isinstance(aut, dict) and aut.get('person') == 'idref'+idref:
+                            to_add = True
+                            break
+                    if to_add:
+                        author_publications.append(pub)
+                person = export_one_person(idref, author_publications, input_dict, df_orga, ix)
+                ix += 1
+                if person:
+                    new_persons.append(person)
+            to_jsonl(new_persons, f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
         os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons_denormalized.jsonl.gz && gzip -k persons_denormalized.jsonl')
         upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl.gz', destination='production/persons_denormalized.jsonl.gz')
     
     load_scanr_persons('/upw_data/scanr/persons_denormalized.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
 
 
-def export_one_person(idref, input_dict, df_orga, ix):
+def export_one_person(idref, publications, input_dict, df_orga, ix):
     prizes, links, externalIds = [], [], []
     if idref in input_dict:
         current_data = input_dict[idref]
         prizes = current_data.get('prizes')
         links = current_data.get('links')
         externalIds = current_data.get('externalIds')
-    publications = get_publications_for_idref(f'idref{idref}')
     if len(publications)==0:
         return None
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')

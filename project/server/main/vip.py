@@ -4,6 +4,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 import requests
 import os
 from urllib.parse import quote_plus
+from retry import retry
 
 from project.server.main.utils import to_jsonl
 from project.server.main.logger import get_logger
@@ -30,6 +31,7 @@ def get_matches(uri_prefix):
     result = sparql.query().convert()
     return result['results']['bindings']
 
+@retry(delay=100, tries=10, logger=logger)
 def get_data_from_idref():
     data_orcid = []
     orcid_matches = get_matches('https://orcid.org')
@@ -65,6 +67,7 @@ def get_data_from_idref():
             idref_dict[str(row.idref)]['id_hal'] = str(row.id_hal_s)
     return idref_dict
 
+@retry(delay=100, tries=10, logger=logger)
 def get_aurehal(aurehal_type):
     #logger.debug(f'start {aurehal_type} aurehal')
     nb_rows = 10000
