@@ -38,6 +38,16 @@ def load_projects(args):
             if part_id:
                 denormalized_organization = get_orga(df_orga, part_id)
                 part['structure'] = denormalized_organization
+        text_to_autocomplete = []
+        for lang in ['default', 'en', 'fr']:
+            for k in ['label', 'acronym']:
+                if isinstance(p.get(k), dict):
+                    if isinstance(p[k].get(lang), str):
+                        text_to_autocomplete.append(p[k][lang])
+        text_to_autocomplete.append(p['id'])
+        text_to_autocomplete = list(set(text_to_autocomplete))
+        p['autocompleted'] = text_to_autocomplete
+        p['autocompletedText'] = text_to_autocomplete
     to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
     load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', 'scanr-projects-20231211')    
 

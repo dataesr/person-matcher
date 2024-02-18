@@ -29,6 +29,8 @@ CURRENT_YEAR = date.today().year
 
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
+LIMIT_GET_PUBLICATIONS_AUTHORS = 10000
+
 @retry(delay=200, tries=3)
 def get_publications_for_idrefs(idrefs):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -36,7 +38,22 @@ def get_publications_for_idrefs(idrefs):
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
-    cursor = mycoll.find({ 'authors.person' : { '$in': idrefs } }).limit(10000)
+    cursor = mycoll.find({ 'authors.person' : { '$in': idrefs } }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
+    for r in cursor:
+        del r['_id']
+        res.append(r)
+    cursor.close()
+    myclient.close()
+    return res
+
+@retry(delay=200, tries=3)
+def get_publications_for_idref(idref):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    res = []
+    cursor = mycoll.find({ 'authors.person' : { '$in': [idref] } }).limit(1000)
     for r in cursor:
         del r['_id']
         res.append(r)
@@ -99,25 +116,30 @@ def export_scanr2(args):
         os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
         df_orga = get_orga_data()
         excluded = get_not_to_export_idref()
-        idref_chunks = chunks(list(idrefs), 150)
+        idref_chunks = chunks(list(idrefs), 300)
         for idref_chunk in idref_chunks:
             publications_for_this_chunk = get_publications_for_idrefs([f'idref{g}' for g in idref_chunk])
+            publications_dict = {}
+            for pub in publications_for_this_chunk:
+                if not isinstance(pub.get('authors'), list):
+                    continue
+                for aut in pub.get('authors'):
+                    if isinstance(aut, dict) and isinstance(aut.get('person'), str) and ('idref' in aut.get('person')):
+                        current_idref = aut['person']
+                        if current_idref not in publications_dict:
+                            publications_dict[current_idref] = []
+                        publications_dict[current_idref].append(pub)
             new_persons = []
             for idref in idref_chunk:
                 if idref in excluded:
                     logger.debug(f'exclude idref {idref}')
                     continue
                 author_publications = []
-                for pub in publications_for_this_chunk:
-                    to_add = False
-                    if not isinstance(pub.get('authors'), list):
-                        continue
-                    for aut in pub.get('authors'):
-                        if isinstance(aut, dict) and aut.get('person') == 'idref'+idref:
-                            to_add = True
-                            break
-                    if to_add:
-                        author_publications.append(pub)
+                if 'idref'+idref in publications_dict:
+                    author_publications = publications_dict['idref'+idref]
+                elif len(publications_for_this_chunk) == LIMIT_GET_PUBLICATIONS_AUTHORS:
+                    logger.debug(f'publications from {idref} have not been retrieved? do it again only from this idref!')
+                    author_publications = get_publications_for_idref('idref'+idref)
                 person = export_one_person(idref, author_publications, input_dict, df_orga, ix)
                 ix += 1
                 if person:
