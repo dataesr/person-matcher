@@ -18,9 +18,34 @@ import pandas as pd
 from retry import retry
 from dateutil import parser
 from urllib import parse
+import zipfile, io
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
+
+def make_clean_html(html):
+    soup = BeautifulSoup(html)
+    text = soup.get_text().replace('\n',' ').replace('\t',' ').replace('  ', ' ')
+    return text
+
+def get_html_from_crawler(current_id, get_zip):
+    for c in current_id.lower():
+        assert(c in ['0123456789abcdefghijklmnopqrstuvwxyz'])
+    if get_zip:
+        OC_FILES_URL = f"{os.getenv('OC_URL')}/files/{current_id}"
+        os.system(f'rm -rf /upw_data/crawl/crawl_{current_id}')
+        r = requests.get(OC_FILES_URL)
+        z = zipfile.ZipFile(io.BytesIO(r.content))
+        z.extractall(f"/upw_data/crawl/crawl_{current_id}")
+
+    all_html=''
+    f = []
+    for (dirpath, dirnames, filenames) in walk(f'/upw_data/crawl/crawl_{current_id}/html'):
+        for filename in filenames:
+            f.append(f'{dirpath}/{filename}')
+            current_html = open(f'{dirpath}/{filename}', 'r').read()
+            all_html+=' '+make_clean_html(current_html)
+    return all_html
 
 def compute_reverse_relations(data):
     reverse_relation_fields = ['parents', 'institutions', 'relations', 'predecessors']
@@ -44,6 +69,7 @@ def compute_reverse_relations(data):
 
 def load_orga(args):
     index_name = args.get('index_name')
+    get_zip_from_crawler = args.get('get_zip_from_crawler', True)
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
@@ -54,6 +80,10 @@ def load_orga(args):
         for ix, p in enumerate(orga):
             new_p = p.copy()
             current_id = new_p['id']
+            if new_p.get('status') == 'active' and isinstance(new_p.get('links'), list):
+                web_content = get_html_from_crawler(current_id = current_id, get_zip = get_zip_from_crawler)
+                if isinstance(web_content, str) and len(web_content)>10:
+                    new_p['web_content'] = web_content
             mainAddress = get_main_address(p.get('address'))
             new_is_french = compute_is_french(current_id, mainAddress)
             if new_is_french != p.get('isFrench'):
@@ -115,3 +145,31 @@ def load_scanr_orga(scanr_output_file_denormalized, index_name):
         elasticimport = f"elasticdump --input={scanr_output_dir_denormalized}/{current_file} --output={es_host}{index_name} --type=data --limit 1000 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
         os.system(elasticimport)
     refresh_index(index_name)
+
+
+def launch_crawl():
+    df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
+    orga = df.to_dict(orient='records')
+
+    structure_list_to_crawl = []
+    for org in orga:
+        if org.get('status') != 'active':
+            continue
+        if not isinstance(org.get('links'), list):
+            continue
+        for link in org['links']:
+            if link.get('type')=='main' and isinstance(link.get('url'), str):
+                new_elt = {'carbon_footprint': {'enabled': False},
+                'technologies_and_trackers': {'enabled': True},
+                'lighthouse': {'enabled': True},
+                'depth': 2,
+                'limit': 10,
+                'tags': ['scanr'],
+                'identifiers': [org['id']],
+                'url': link['url']}
+                structure_list_to_crawl.append(new_elt)
+
+    OC_URL = os.getenv('OC_URL')
+    for e in structure_list_to_crawl:
+        r = requests.post(OC_URL, json=e).json()
+        #print(r)            

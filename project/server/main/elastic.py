@@ -53,7 +53,12 @@ def get_analyzers() -> dict:
             ]
         },
         'html_analyzer': {
-          "tokenizer": "keyword",
+          "tokenizer": "icu_tokenizer",
+            'filter': [
+                'lowercase',
+                'french_elision',
+                'icu_folding'
+            ]
           "char_filter": [
             "html_strip"
           ]
@@ -137,7 +142,7 @@ def reset_index_scanr(index: str) -> None:
     for f in ['web_content']: 
         mappings['properties'][f] = { 
                 'type': 'text',
-                'analyzer': 'html_analyzer',
+                'analyzer': 'light',
             }
 
     dynamic_match = None
