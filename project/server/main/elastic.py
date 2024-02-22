@@ -52,22 +52,13 @@ def get_analyzers() -> dict:
                 'icu_folding'
             ]
         },
-        'html_analyzer': {
-          "tokenizer": "icu_tokenizer",
-            'filter': [
-                'lowercase',
-                'french_elision',
-                'icu_folding'
-            ]
-          "char_filter": [
-            "html_strip"
-          ]
-        },
         "autocomplete": {
           "type": "custom",
-          "tokenizer": "standard",
+          "tokenizer": "icu_tokenizer",
           "filter": [
             "lowercase",
+            'french_elision',
+            'icu_folding',
             "autocomplete_filter"
           ]
         }
@@ -102,8 +93,10 @@ def reset_index_scanr(index: str) -> None:
     mappings = { 'properties': {} }
 
     mappings['properties']['autocompleted'] = {
-                'type': 'search_as_you_type',
-                'analyzer': 'light'
+                #'type': 'search_as_you_type',
+                #'analyzer': 'light'
+                'type': 'text',
+                'analyzer': 'autocomplete'
             }
     mappings['properties']['autocompletedText'] = {
                 'type': 'text',
