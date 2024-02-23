@@ -27,12 +27,13 @@ person_id_key = 'person'
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
 def load_projects(args):
+    index_name = args.get('index_name')
     df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
     projects = df.to_dict(orient='records')
     df_orga = get_orga_data()
     os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
     denormalized_projects = []
-    for p in projects:
+    for ix, p in enumerate(projects):
         for part in p.get('participants'):
             part_id = part.get('structure')
             if part_id:
@@ -46,10 +47,10 @@ def load_projects(args):
                         text_to_autocomplete.append(p[k][lang])
         text_to_autocomplete.append(p['id'])
         text_to_autocomplete = list(set(text_to_autocomplete))
-        p['autocompleted'] = text_to_autocomplete
-        p['autocompletedText'] = text_to_autocomplete
+        projects[ix]['autocompleted'] = text_to_autocomplete
+        projects[ix]['autocompletedText'] = text_to_autocomplete
     to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
-    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', 'scanr-projects-20231211')    
+    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name) 
 
 def load_scanr_projects(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized
