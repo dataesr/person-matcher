@@ -13,6 +13,7 @@ from project.server.main.scanr2 import export_scanr2
 from project.server.main.projects import load_projects
 from project.server.main.patents import load_patents
 from project.server.main.organisations import load_orga
+from project.server.main.geo import load_geo
 
 main_blueprint = Blueprint("main", __name__,)
 from project.server.main.logger import get_logger
@@ -41,6 +42,10 @@ def run_task_scanr_other():
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=21600000)
             task = q.enqueue(load_orga, args)
+    if args.get('geo'):
+        with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+            q = Queue("person-matcher", default_timeout=21600000)
+            task = q.enqueue(load_geo, args)
     response_object = {
         "status": "success",
         "data": {
