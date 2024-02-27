@@ -31,7 +31,8 @@ def make_clean_html(html):
 
 def get_html_from_crawler(current_id, get_zip):
     for c in current_id.lower():
-        assert(c in '0123456789abcdefghijklmnopqrstuvwxyz')
+        if (c not in '0123456789abcdefghijklmnopqrstuvwxyz.'):
+            return ''
     if get_zip:
         try:
             OC_FILES_URL = f"{os.getenv('OC_URL')}/files/{current_id}"
@@ -41,6 +42,7 @@ def get_html_from_crawler(current_id, get_zip):
             z.extractall(f"/upw_data/crawl/crawl_{current_id}")
         except:
             logger.debug(f'no zip for {current_id}')
+            return ''
 
     all_html=''
     f = []
@@ -110,7 +112,7 @@ def load_orga(args):
             nb_projects = new_p['projectsCount']
             nb_patents = new_p['patentsCount']
             if nb_publis + nb_projects + nb_patents == 0:
-                logger.debug(f"ignore {p['id']} - no publi / project / patent"}
+                logger.debug(f"ignore {p['id']} - no publi / project / patent")
                 continue
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}, nb_patents={nb_patents}')
             for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
