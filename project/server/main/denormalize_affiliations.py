@@ -12,7 +12,7 @@ def get_main_address(address):
             main_add = add.copy()
             break
     if main_add:
-        for f in ['main', 'citycode', 'urbanUnitCode', 'urbanUnitLabel', 'localisationSuggestions', 'provider', 'score']:
+        for f in ['main', 'citycode', 'urbanUnitCode', 'urbanUnitLabel', 'provider', 'score']:
             if main_add.get(f):
                 del main_add[f]
     return main_add

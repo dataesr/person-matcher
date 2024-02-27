@@ -24,23 +24,26 @@ logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
 def make_clean_html(html):
-    soup = BeautifulSoup(html)
+    soup = BeautifulSoup(html, 'lxml')
     text = soup.get_text().replace('\n',' ').replace('\t',' ').replace('  ', ' ')
     return text
 
 def get_html_from_crawler(current_id, get_zip):
     for c in current_id.lower():
-        assert(c in ['0123456789abcdefghijklmnopqrstuvwxyz'])
+        assert(c in '0123456789abcdefghijklmnopqrstuvwxyz')
     if get_zip:
-        OC_FILES_URL = f"{os.getenv('OC_URL')}/files/{current_id}"
-        os.system(f'rm -rf /upw_data/crawl/crawl_{current_id}')
-        r = requests.get(OC_FILES_URL)
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        z.extractall(f"/upw_data/crawl/crawl_{current_id}")
+        try:
+            OC_FILES_URL = f"{os.getenv('OC_URL')}/files/{current_id}"
+            os.system(f'rm -rf /upw_data/crawl/crawl_{current_id}')
+            r = requests.get(OC_FILES_URL)
+            z = zipfile.ZipFile(io.BytesIO(r.content))
+            z.extractall(f"/upw_data/crawl/crawl_{current_id}")
+        except:
+            logger.debug(f'no zip for {current_id}')
 
     all_html=''
     f = []
-    for (dirpath, dirnames, filenames) in walk(f'/upw_data/crawl/crawl_{current_id}/html'):
+    for (dirpath, dirnames, filenames) in os.walk(f'/upw_data/crawl/crawl_{current_id}/html'):
         for filename in filenames:
             f.append(f'{dirpath}/{filename}')
             current_html = open(f'{dirpath}/{filename}', 'r').read()
