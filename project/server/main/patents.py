@@ -22,7 +22,26 @@ from urllib import parse
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
+def get_patents_orga_dict():
+    download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
+    df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
+    patents_orga_dict = {}
+    for c in df:
+        patents = c.to_dict(orient='records')
+        for p in patents:
+            for aff_id in p.get('affiliations', []):
+                if aff_id not in patents_orga_dict:
+                    patents_orga_dict[aff_id] = []
+                patents_orga_dict[aff_id].append({'id': p['id'], 'title': p['title']})
+    return patents_orga_dict
+
+def get_patent_from_orga(map_orga_patent, orga_id):
+    if orga_id in map_orga_patent:
+        return map_orga_patent[orga_id]
+    return []
+
 def load_patents(args):
+    index_name = args.get('index_name')
     download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
     df_orga = get_orga_data()
@@ -38,7 +57,7 @@ def load_patents(args):
             p['affiliations'] = new_affiliations
         logger.debug(f'appending new denormalized data in patents')
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
-    load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', 'scanr-patents-20231211')    
+    load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 
 
 def load_scanr_patents(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized

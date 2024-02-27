@@ -4,6 +4,7 @@ from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
+from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
@@ -78,7 +79,8 @@ def load_orga(args):
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
         orga = df.to_dict(orient='records')
         reverse_relation = compute_reverse_relations(orga)
-        map_proj_orga =get_link_orga_projects()
+        map_proj_orga = get_link_orga_projects()
+        map_patent_orga = get_patents_orga_dict()
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
             new_p = p.copy()
@@ -102,9 +104,15 @@ def load_orga(args):
             new_p['publicationsCount'] = publications_data['count']
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
             new_p['projectsCount'] = len(new_p['projects'])
+            new_p['patents'] = get_patent_from_orga(map_patent_orga, p['id'])
+            new_p['patentsCount'] = len(new_p['patents'])
             nb_publis = new_p['publicationsCount']
-            nb_projects = len(new_p['projects'])
-            logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}')
+            nb_projects = new_p['projectsCount']
+            nb_patents = new_p['patentsCount']
+            if nb_publis + nb_projects + nb_patents == 0:
+                logger.debug(f"ignore {p['id']} - no publi / project / patent"}
+                continue
+            logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}, nb_patents={nb_patents}')
             for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
                 if not isinstance(new_p.get(f), list):
                     continue
