@@ -111,15 +111,14 @@ def load_orga(args):
             nb_publis = new_p['publicationsCount']
             nb_projects = new_p['projectsCount']
             nb_patents = new_p['patentsCount']
-            if nb_publis + nb_projects + nb_patents == 0:
-                logger.debug(f"ignore {p['id']} - no publi / project / patent")
-                continue
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}, nb_patents={nb_patents}')
+            nb_relationships = 0
             for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
                 if not isinstance(new_p.get(f), list):
                     continue
                 for ix, e in enumerate(new_p[f]):
                     if isinstance(e, dict) and isinstance(e.get('structure'), str):
+                        nb_relationships += 1
                         current_id = e.get('structure')
                         new_p[f][ix]['denormalized'] = get_orga(df_orga, current_id)
                 if f not in ['predecessors']:
@@ -137,6 +136,9 @@ def load_orga(args):
             for ext in new_p.get('externalIds', []):
                 if isinstance(ext.get('id'), str):
                     text_to_autocomplete.append(ext['id'])
+            if nb_publis + nb_projects + nb_patents + nb_relationships == 0:
+                logger.debug(f"ignore {p['id']} - no publi / project / patent / relationship")
+                continue
             text_to_autocomplete = list(set(text_to_autocomplete))
             new_p['autocompleted'] = text_to_autocomplete
             new_p['autocompletedText'] = text_to_autocomplete
