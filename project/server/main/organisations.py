@@ -87,6 +87,7 @@ def load_orga(args):
         for ix, p in enumerate(orga):
             new_p = p.copy()
             current_id = new_p['id']
+            reasons_scanr = []
             if new_p.get('status') == 'active' and isinstance(new_p.get('links'), list):
                 web_content = get_html_from_crawler(current_id = current_id, get_zip = get_zip_from_crawler)
                 if isinstance(web_content, str) and len(web_content)>10:
@@ -109,8 +110,14 @@ def load_orga(args):
             new_p['patents'] = get_patent_from_orga(map_patent_orga, p['id'])
             new_p['patentsCount'] = len(new_p['patents'])
             nb_publis = new_p['publicationsCount']
+            if nb_publis > 0:
+                reasons_scanr.append('publication')
             nb_projects = new_p['projectsCount']
+            if nb_projects > 0:
+                reasons_scanr.append('project')
             nb_patents = new_p['patentsCount']
+            if nb_patents > 0:
+                reasons_scanr.append('patent')
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}, nb_patents={nb_patents}')
             nb_relationships = 0
             for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
@@ -119,12 +126,17 @@ def load_orga(args):
                 for ix, e in enumerate(new_p[f]):
                     if isinstance(e, dict) and isinstance(e.get('structure'), str):
                         nb_relationships += 1
+                        reasons_scanr.append('relationship')
                         current_id = e.get('structure')
                         new_p[f][ix]['denormalized'] = get_orga(df_orga, current_id)
                 if f not in ['predecessors']:
                     new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
             if new_p.get('spinoffs'):
                 del new_p['spinoffs']
+            if isinstance(p.get('badges'), list) and len(p['badges']) > 0:
+                new_p['badges'] = p['badges']
+                nb_badges = len(p['badges'])
+                reasons_scanr.append('badge')
             text_to_autocomplete = []
             for lang in ['default', 'en', 'fr']:
                 for k in ['label', 'acronym']:
@@ -136,8 +148,11 @@ def load_orga(args):
             for ext in new_p.get('externalIds', []):
                 if isinstance(ext.get('id'), str):
                     text_to_autocomplete.append(ext['id'])
-            if nb_publis + nb_projects + nb_patents + nb_relationships == 0:
-                logger.debug(f"ignore {p['id']} - no publi / project / patent / relationship")
+            reasons_scanr = list(set(reasons_scanr))
+            reasons_scanr.sort()
+            new_p['reasons_scanr'] = reasons_scanr
+            if len(reasons_scanr) == 0:
+                logger.debug(f"ignore {p['id']} - no publi / project / patent / relationship / badge")
                 continue
             text_to_autocomplete = list(set(text_to_autocomplete))
             new_p['autocompleted'] = text_to_autocomplete
