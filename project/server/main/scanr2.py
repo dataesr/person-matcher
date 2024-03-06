@@ -47,6 +47,21 @@ def get_publications_for_idrefs(idrefs):
     return res
 
 @retry(delay=200, tries=3)
+def get_publications_for_project(project):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    res = []
+    cursor = mycoll.find({ 'projects' : project }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
+    for r in cursor:
+        del r['_id']
+        res.append(r)
+    cursor.close()
+    myclient.close()
+    return res
+
+@retry(delay=200, tries=3)
 def get_publications_for_idref(idref):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']

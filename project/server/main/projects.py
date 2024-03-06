@@ -6,7 +6,7 @@ from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
-from project.server.main.scanr2 import get_publications_for_affiliation
+from project.server.main.scanr2 import get_publications_for_project
 
 import pysftp
 import requests
@@ -45,6 +45,9 @@ def load_projects(args):
                 if isinstance(p.get(k), dict):
                     if isinstance(p[k].get(lang), str):
                         text_to_autocomplete.append(p[k][lang])
+        publications_data = get_publications_for_project(p['id'])
+        projects[ix]['publications'] = publications_data['publications']
+        projects[ix]['publicationsCount'] = publications_data['count']
         text_to_autocomplete.append(p['id'])
         text_to_autocomplete = list(set(text_to_autocomplete))
         projects[ix]['autocompleted'] = text_to_autocomplete
