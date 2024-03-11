@@ -8,6 +8,7 @@ from project.server.main.patents import get_patents_orga_dict, get_patent_from_o
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
+from project.server.main.ods import get_awards, get_agreements
 
 import pysftp
 import requests
@@ -83,6 +84,8 @@ def load_orga(args):
         reverse_relation = compute_reverse_relations(orga)
         map_proj_orga = get_link_orga_projects()
         map_patent_orga = get_patents_orga_dict()
+        map_agreements = get_agreements()
+        map_awards = get_awards()
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
             new_p = p.copy()
@@ -133,10 +136,16 @@ def load_orga(args):
                     new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
             if new_p.get('spinoffs'):
                 del new_p['spinoffs']
-            if isinstance(p.get('badges'), list) and len(p['badges']) > 0:
-                new_p['badges'] = p['badges']
-                nb_badges = len(p['badges'])
-                reasons_scanr.append('badge')
+            if current_id in map_awards:
+                new_p['awards'] = map_awards[current_id]
+                reasons_scanr.append('awards')
+            if current_id in map_agreements:
+                new_p['agreements'] = map_agreements[current_id]
+                reasons_scanr.append('agreements')
+            #if isinstance(p.get('badges'), list) and len(p['badges']) > 0:
+            #    new_p['badges'] = p['badges']
+            #    nb_badges = len(p['badges'])
+            #    reasons_scanr.append('badge')
             text_to_autocomplete = []
             for lang in ['default', 'en', 'fr']:
                 for k in ['label', 'acronym']:
@@ -159,6 +168,8 @@ def load_orga(args):
             new_p['autocompletedText'] = text_to_autocomplete
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized.jsonl')
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', index_name)
+    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf organizations_denormalized.jsonl.gz && gzip -k organizations_denormalized.jsonl')
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/organizations_denormalized.jsonl.gz', destination='production/organizations_denormalized.jsonl.gz')
 
 def load_scanr_orga(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized.split('/')[-1]

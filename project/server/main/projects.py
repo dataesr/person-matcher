@@ -28,31 +28,33 @@ person_id_key = 'person'
 
 def load_projects(args):
     index_name = args.get('index_name')
-    df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
-    projects = df.to_dict(orient='records')
-    df_orga = get_orga_data()
-    os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
-    denormalized_projects = []
-    for ix, p in enumerate(projects):
-        for part in p.get('participants'):
-            part_id = part.get('structure')
-            if part_id:
-                denormalized_organization = get_orga(df_orga, part_id)
-                part['structure'] = denormalized_organization
-        text_to_autocomplete = []
-        for lang in ['default', 'en', 'fr']:
-            for k in ['label', 'acronym']:
-                if isinstance(p.get(k), dict):
-                    if isinstance(p[k].get(lang), str):
-                        text_to_autocomplete.append(p[k][lang])
-        publications_data = get_publications_for_project(p['id'])
-        projects[ix]['publications'] = publications_data['publications']
-        projects[ix]['publicationsCount'] = publications_data['count']
-        text_to_autocomplete.append(p['id'])
-        text_to_autocomplete = list(set(text_to_autocomplete))
-        projects[ix]['autocompleted'] = text_to_autocomplete
-        projects[ix]['autocompletedText'] = text_to_autocomplete
-    to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
+    if args.get('reload_index_only', False) is False:
+        df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
+        projects = df.to_dict(orient='records')
+        df_orga = get_orga_data()
+        os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
+        denormalized_projects = []
+        for ix, p in enumerate(projects):
+            for part in p.get('participants'):
+                part_id = part.get('structure')
+                if part_id:
+                    denormalized_organization = get_orga(df_orga, part_id)
+                    part['structure'] = denormalized_organization
+            text_to_autocomplete = []
+            for lang in ['default', 'en', 'fr']:
+                for k in ['label', 'acronym']:
+                    if isinstance(p.get(k), dict):
+                        if isinstance(p[k].get(lang), str):
+                            text_to_autocomplete.append(p[k][lang])
+            publications_data = get_publications_for_project(p['id'])
+            projects[ix]['publications'] = publications_data['publications']
+            projects[ix]['publicationsCount'] = publications_data['count']
+            logger.debug(f"{projects[ix]['publicationsCount']} publications retrieved for project {p['id']}")
+            text_to_autocomplete.append(p['id'])
+            text_to_autocomplete = list(set(text_to_autocomplete))
+            projects[ix]['autocompleted'] = text_to_autocomplete
+            projects[ix]['autocompletedText'] = text_to_autocomplete
+        to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
     load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name) 
 
 def load_scanr_projects(scanr_output_file_denormalized, index_name):
@@ -61,7 +63,7 @@ def load_scanr_projects(scanr_output_file_denormalized, index_name):
     es_host = f'https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}'
     logger.debug('loading scanr-projects index')
     reset_index_scanr(index=index_name)
-    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 500 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
+    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 100 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
     logger.debug(f'{elasticimport}')
     logger.debug('starting import in elastic')
     os.system(elasticimport)

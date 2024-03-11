@@ -7,13 +7,13 @@ from urllib.parse import quote_plus
 from retry import retry
 
 from project.server.main.utils import to_jsonl
+from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
 sparql = SPARQLWrapper("https://data.idref.fr/sparql")
 
-ODS_API_KEY = os.getenv('ODS_API_KEY')
 
 QUERY_START = """
 SELECT ?idref ?firstName ?lastName ?ext_id
@@ -111,7 +111,7 @@ def get_vip():
                 print(f"mismatch;orcid;{idref};{idref_dict[idref]['orcid']};{current_orcid}")
                 del idref_dict[idref]['orcid']
 
-    awardsr = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/fr_esr_paysage_laureats_all/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
+    awardsr = get_ods_data('fr_esr_paysage_laureats_all')
     #iphdr = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/fr-esr-laureats-concours-i-phd/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
     for row in awardsr.itertuples():
         idref= row.laureat_identifiant_idref

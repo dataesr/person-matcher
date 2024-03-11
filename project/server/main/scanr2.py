@@ -30,6 +30,7 @@ CURRENT_YEAR = date.today().year
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
 LIMIT_GET_PUBLICATIONS_AUTHORS = 10000
+LIMIT_GET_PUBLICATIONS_PROJECT = 500
 
 @retry(delay=200, tries=3)
 def get_publications_for_idrefs(idrefs):
@@ -39,21 +40,6 @@ def get_publications_for_idrefs(idrefs):
     mycoll = mydb[collection_name]
     res = []
     cursor = mycoll.find({ 'authors.person' : { '$in': idrefs } }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
-    for r in cursor:
-        del r['_id']
-        res.append(r)
-    cursor.close()
-    myclient.close()
-    return res
-
-@retry(delay=200, tries=3)
-def get_publications_for_project(project):
-    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
-    mydb = myclient['scanr']
-    collection_name = 'publi_meta'
-    mycoll = mydb[collection_name]
-    res = []
-    cursor = mycoll.find({ 'projects' : project }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
     for r in cursor:
         del r['_id']
         res.append(r)
@@ -75,6 +61,21 @@ def get_publications_for_idref(idref):
     cursor.close()
     myclient.close()
     return res
+
+@retry(delay=200, tries=3)
+def get_publications_for_project(project):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    res = []
+    cursor = mycoll.find({ 'projects' : project }).limit(LIMIT_GET_PUBLICATIONS_PROJECT)
+    for r in cursor:
+        del r['_id']
+        res.append(r)
+    cursor.close()
+    myclient.close()
+    return {'count': len(res), 'publications': res}
 
 @retry(delay=200, tries=3)
 def get_publications_for_affiliation(aff):
