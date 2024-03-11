@@ -111,6 +111,38 @@ def get_vip():
                 print(f"mismatch;orcid;{idref};{idref_dict[idref]['orcid']};{current_orcid}")
                 del idref_dict[idref]['orcid']
 
+    df_pers = get_ods_data('fr-esr-paysage_personnes_identifiants')
+    for id_paysage, grp in df_pers.groupby('id_person_paysage'):
+        df_idref = grp[grp.id_type=='idref']
+        idref = None
+        if len(df_idref) == 1:
+            idref = df_idref['id'].values[0]
+        if idref is None:
+            continue
+        if idref not in idref_dict:
+            idref_dict[idref] = {'idref': idref}
+        idref_dict[idref]['paysage'] = id_paysage
+        for k in grp.to_dict(orient='records'):
+            if k['id_type'] != 'idref':
+                if k['id_type'] == 'idhal':
+                    idtype = 'id_hal'
+                else:
+                    idtype = k['id_type']
+                idref_dict[idref][idtype] = k['id']
+
+
+    for idref in idref_dict:
+        if 'externalIds' not in idref_dict[idref]:
+            for f in ['orcid', 'id_hal', 'wikidata', 'wos', 'scopus', 'univ-droit']:
+                if f in idref_dict[idref]:
+                    idref_dict[idref]['externalIds'] = []
+                    break
+        for f in ['orcid', 'id_hal', 'wikidata', 'wos', 'scopus', 'univ-droit']:
+            if (f in idref_dict[idref]):
+                new_ext = {'type': f, 'id': idref_dict[idref][f]}
+                if new_ext not in idref_dict[idref]['externalIds']:
+                    idref_dict[idref]['externalIds'].append(new_ext)
+
     awardsr = get_ods_data('fr_esr_paysage_laureats_all')
     #iphdr = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/fr-esr-laureats-concours-i-phd/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
     for row in awardsr.itertuples():
