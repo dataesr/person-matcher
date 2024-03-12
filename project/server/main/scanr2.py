@@ -303,6 +303,14 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
     for ext in person.get('externalIds', []):
         if isinstance(ext.get('id'), str):
             text_to_autocomplete.append(ext['id'])
+            if ext['type'] == 'orcid':
+                ext['url'] = f"https://orcid.org/{ext['id']}"
+            if ext['type'] == 'idref':
+                ext['url'] = f"https://www.idref.fr/{ext['id']}"
+            if ext['type'] == 'id_hal':
+                ext['url'] = f"https://hal.science/search/index/?q=authIdHal_s:{ext['id']}"
+            if ext['type'] == 'wikidata':
+                ext['url'] = f"https://www.wikidata.org/wiki/{ext['id']}"
     text_to_autocomplete = list(set(text_to_autocomplete))
     person['autocompleted'] = text_to_autocomplete
     person['autocompletedText'] = text_to_autocomplete

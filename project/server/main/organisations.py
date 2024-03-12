@@ -168,8 +168,8 @@ def load_orga(args):
             new_p['autocompletedText'] = text_to_autocomplete
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized.jsonl')
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', index_name)
-    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf organizations_denormalized.jsonl.gz && gzip -k organizations_denormalized.jsonl')
-    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/organizations_denormalized.jsonl.gz', destination='production/organizations_denormalized.jsonl.gz')
+    os.system(f'cd {MOUNTED_VOLUME}scanr/organizations && rm -rf organizations_denormalized.jsonl.gz && gzip -k organizations_denormalized.jsonl')
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/organizations/organizations_denormalized.jsonl.gz', destination='production/organizations_denormalized.jsonl.gz')
 
 def load_scanr_orga(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized.split('/')[-1]

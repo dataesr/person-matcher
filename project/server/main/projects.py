@@ -55,6 +55,8 @@ def load_projects(args):
             projects[ix]['autocompleted'] = text_to_autocomplete
             projects[ix]['autocompletedText'] = text_to_autocomplete
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
+    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name) 
 
 def load_scanr_projects(scanr_output_file_denormalized, index_name):
