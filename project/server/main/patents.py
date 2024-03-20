@@ -22,6 +22,16 @@ from urllib import parse
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
+def get_structures_from_patent(p):
+    structures = []
+    if isinstance(p.get('authors', {}).get('applicants', []), list):
+        for appl in p['authors']['applicants']:
+            current_applicant = appl[0]
+            for f in ['siren']:
+                if f in current_applicant:
+                    structures.append(current_applicant[f])
+    return list(set(structures))
+
 def get_patents_orga_dict():
     download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
@@ -29,10 +39,11 @@ def get_patents_orga_dict():
     for c in df:
         patents = c.to_dict(orient='records')
         for p in patents:
-            for aff_id in p.get('affiliations', []):
+            struct = get_structures_from_patent(p)    
+            for aff_id in struct:
                 if aff_id not in patents_orga_dict:
                     patents_orga_dict[aff_id] = []
-                patents_orga_dict[aff_id].append({'id': p['id'], 'title': p['title']})
+            patents_orga_dict[aff_id].append({'id': p['id'], 'title': p['title']})
     return patents_orga_dict
 
 def get_patent_from_orga(map_orga_patent, orga_id):
@@ -51,11 +62,10 @@ def load_patents(args):
         denormalized_patents = []
         for p in patents:
             new_affiliations = []
-            for aff_id in p.get('affiliations', []):
+            for aff_id in get_structures_from_patent(p):
                 denormalized_organization = get_orga(df_orga, aff_id)
                 new_affiliations.append(denormalized_organization)
-            p['affiliations'] = new_affiliations
-        logger.debug(f'appending new denormalized data in patents')
+            p['denormalized_structures'] = new_affiliations
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
     load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 
 
