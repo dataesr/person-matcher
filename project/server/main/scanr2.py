@@ -32,6 +32,44 @@ CURRENT_YEAR = date.today().year
 LIMIT_GET_PUBLICATIONS_AUTHORS = 10000
 LIMIT_GET_PUBLICATIONS_PROJECT = 500
 
+def get_manual_matches():
+    publi_author_dict = {}
+    manual_infos = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv').to_dict(orient='records')
+    infos = manual_infos
+    for a in infos:
+        author_key = None
+        if normalize(a.get('first_name'), remove_space=True) and normalize(a.get('last_name'), remove_space=True):
+            author_key = normalize(a.get('first_name'), remove_space=True)[0]+normalize(a.get('last_name'), remove_space=True)
+        elif normalize(a.get('full_name'), remove_space=True):
+            author_key = normalize(a.get('full_name'), remove_space=True)
+        publi_id = a.get('publi_id')
+        if not isinstance(publi_id, str):
+            continue
+        publi_id = publi_id.lower().strip()
+        person_id = a.get('person_id')
+        if not isinstance(person_id, str):
+            continue
+        person_id = person_id.strip()
+        if person_id not in publi_author_key:
+            publi_author_dict[person_id] = []
+        publi_author_dict[person_id].append(publi_id)
+    return publi_author_dict
+
+@retry(delay=200, tries=3)
+def get_publications_from_ids(publication_ids):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    mycoll = mydb[collection_name]
+    res = []
+    cursor = mycoll.find({ 'id' : { '$in': publication_ids } }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
+    for r in cursor:
+        del r['_id']
+        res.append(r)
+    cursor.close()
+    myclient.close()
+    return res
+
 @retry(delay=200, tries=3)
 def get_publications_for_idrefs(idrefs):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -132,6 +170,9 @@ def export_scanr2(args):
         os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
         df_orga = get_orga_data()
         excluded = get_not_to_export_idref()
+
+        #manual_matches = get_manual_matches()
+
         idref_chunks = chunks(list(idrefs), 300)
         for idref_chunk in idref_chunks:
             publications_for_this_chunk = get_publications_for_idrefs([f'idref{g}' for g in idref_chunk])
@@ -156,6 +197,18 @@ def export_scanr2(args):
                 elif len(publications_for_this_chunk) == LIMIT_GET_PUBLICATIONS_AUTHORS:
                     logger.debug(f'publications from {idref} have not been retrieved? do it again only from this idref!')
                     author_publications = get_publications_for_idref('idref'+idref)
+                
+                #if 'idref'+idref in manual_matches:
+                #    publi_id_to_add = []
+                #    manual_publi = manual_matches['idref'+idref]
+                #    known_publi_id = set([p['id'] for p in author_publications])
+                #    for publi_id in manual_publi:
+                #        if publi_id not in known_publi_id:
+                #            publi_id_to_add.append(publi_id)
+                #    if publi_id_to_add:
+                #        publis_to_add = get_publications_from_ids(publi_id_to_add)
+                #        author_publications = author_publications + publis_to_add
+                #        logger.debug(f"added {len(publis_to_add)} publications manually to {idref}")
                 person = export_one_person(idref, author_publications, input_dict, df_orga, ix)
                 ix += 1
                 if person:
@@ -365,6 +418,7 @@ def get_idref_info(idref):
             externalIds.append({'type': 'id_hal', 'id': id_hal})
     if externalIds:
         person['externalIds'] = externalIds
+    person['idref'] = person['id'].replace('idref', '')
     return person
 
 def load_scanr_persons(scanr_output_file_denormalized, index_name):

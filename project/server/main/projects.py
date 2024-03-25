@@ -26,11 +26,27 @@ person_id_key = 'person'
 
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
 
+def get_phc_duplicates(df):
+    df_phc = df[df.type=='Partenariat Hubert Curien']
+    to_del = []
+    kb = {}
+    all_p = {}
+    for row in df_phc.itertuples():
+        key = normalize(row.label['default'] +';' + str(int(row.year)))
+        if key not in kb:
+            kb[key] = [row.id]
+            all_p[key] = []
+        else:
+            to_del.append(row.id)
+        all_p[key].append(row.id)
+    return list(set(to_del))
+
 def load_projects(args):
     index_name = args.get('index_name')
     if args.get('reload_index_only', False) is False:
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
-        projects = df.to_dict(orient='records')
+        phc_duplicates = get_phc_duplicates(df)
+        projects = [p for p in df.to_dict(orient='records') if p['id'] not in phc_duplicates]
         df_orga = get_orga_data()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         denormalized_projects = []

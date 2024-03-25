@@ -16,11 +16,16 @@ logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 SUDOC_SERVICE = os.getenv('SUDOC_SERVICE')
 
+# https://docs.google.com/spreadsheets/d/1uiY5MAYb0IEl2LNxbl2lP-lpNnWgcsW7e__cLvDY_qk/edit#gid=1281340758 (liens idref-publi)
+# https://docs.google.com/spreadsheets/d/1Tx23f90zdDTE5UL_iv3ANxX6TlO20Sw2jkBOTCcfBAo/edit#gid=0 (remove idref)
+# https://docs.google.com/spreadsheets/d/1TqFUiOyHMdo9R1_8eW0EfqBu6_OJQpJFtLwX_lIYK9A/edit#gid=0 (wrong aff)
+
 def get_manual_match():
-    download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
+    #download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')
     download_object('misc', 'orcid_idref.jsonl', '/upw_data/orcid_idref.jsonl')
     publi_author_dict = {}
-    manual_infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
+    #manual_infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
+    manual_infos = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv').to_dict(orient='records')
     orcid_infos = pd.read_json('/upw_data/orcid_idref.jsonl', lines=True).to_dict(orient='records')
     infos = manual_infos + orcid_infos
     for a in infos:
