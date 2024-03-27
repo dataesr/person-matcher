@@ -68,6 +68,7 @@ def load_patents(args):
             p['denormalized_structures'] = new_affiliations
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
     load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/patents_denormalized.jsonl.gz', destination='production/patents_denormalized.jsonl.gz')
 
 def load_scanr_patents(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized

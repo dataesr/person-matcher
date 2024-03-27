@@ -157,6 +157,8 @@ def load_orga(args):
             for ext in new_p.get('externalIds', []):
                 if isinstance(ext.get('id'), str):
                     text_to_autocomplete.append(ext['id'])
+                if ext.get('type') == 'rnsr':
+                    reasons_scanr.append('rnsr')
             reasons_scanr = list(set(reasons_scanr))
             reasons_scanr.sort()
             new_p['reasons_scanr'] = reasons_scanr
