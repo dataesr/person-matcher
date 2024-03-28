@@ -110,6 +110,10 @@ def get_publications_for_project(project):
     cursor = mycoll.find({ 'projects' : project }).limit(LIMIT_GET_PUBLICATIONS_PROJECT)
     for r in cursor:
         del r['_id']
+        if isinstance(r.get('authors'), list):
+            for aut in r['authors']:
+                if 'affiliations' in aut:
+                    del aut['affiliations']
         res.append(r)
     cursor.close()
     myclient.close()
@@ -123,9 +127,15 @@ def get_publications_for_affiliation(aff):
     mycoll = mydb[collection_name]
     res = []
     count = mycoll.count_documents({ 'affiliations' : { '$in': [aff] } })
-    cursor = mycoll.find({ 'affiliations' : { '$in': [aff] } }).limit(5000)
+    cursor = mycoll.find({ 'affiliations' : { '$in': [aff] } }).limit(1000)
     for r in cursor:
         del r['_id']
+        if 'affiliations' in r:
+            del r['affiliations']
+        if isinstance(r.get('authors'), list):
+            for aut in r['authors']:
+                if 'affiliations' in aut:
+                    del aut['affiliations']
         res.append(r)
     cursor.close()
     myclient.close()
