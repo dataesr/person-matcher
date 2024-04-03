@@ -24,12 +24,17 @@ MOUNTED_VOLUME = '/upw_data/'
 
 def get_structures_from_patent(p):
     structures = []
-    if isinstance(p.get('authors', {}).get('applicants', []), list):
-        for appl in p['authors']['applicants']:
-            current_applicant = appl[0]
-            for f in ['siren']:
-                if f in current_applicant:
-                    structures.append(current_applicant[f])
+    applicants, inventors = [], []
+    if isinstance(p.get('applicants'), list):
+        applicants = p['applicants']
+    if isinstance(p.get('inventors'), list):
+        inventors = p['inventors']
+    for appl in applicants + inventors:
+        if isinstance(appl.get('ids'), list):
+            for f in appl['ids']:
+                current_id = f['id']
+                if current_id not in structures:
+                    structures.append(current_id)
     return list(set(structures))
 
 def get_patents_orga_dict():
@@ -68,6 +73,7 @@ def load_patents(args):
             p['denormalized_structures'] = new_affiliations
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
     load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 
+    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf patents_denormalized.jsonl.gz && gzip -k patents_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/patents_denormalized.jsonl.gz', destination='production/patents_denormalized.jsonl.gz')
 
 def load_scanr_patents(scanr_output_file_denormalized, index_name):
