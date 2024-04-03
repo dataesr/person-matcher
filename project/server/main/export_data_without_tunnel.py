@@ -42,7 +42,7 @@ def get_with_retry(url):
     s.headers.update(header)
     return requests_retry_session(session=s).get(url)
     
-def dump_from_http():
+def dump_from_http2():
     db = 'organizations'
     collection = 'scanr'
     url_base = "http://185.161.45.213/{0}/{1}".format(db, collection)
@@ -55,7 +55,6 @@ def dump_from_http():
         url = url_base+"?max_results=500&page="+str(p)
         r = get_with_retry(url)
         current_list += r.json()['data']
-        break
     current_list2=[]
     for elem in current_list:
         if 'id' in elem:
@@ -66,7 +65,6 @@ def dump_from_http():
             if field in elem:
                 del elem[field]
         current_list2.append(elem)
-    return current_list2
     to_jsonl(current_list2, '/upw_data/scanr/organizations.jsonl')
     os.system(f'cd /upw_data/scanr && rm -rf organizations.jsonl.gz && gzip -k organizations.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/organizations.jsonl.gz', destination='production/organizations.test.jsonl.gz')
