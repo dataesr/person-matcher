@@ -19,6 +19,7 @@ SUDOC_SERVICE = os.getenv('SUDOC_SERVICE')
 # https://docs.google.com/spreadsheets/d/1uiY5MAYb0IEl2LNxbl2lP-lpNnWgcsW7e__cLvDY_qk/edit#gid=1281340758 (liens idref-publi)
 # https://docs.google.com/spreadsheets/d/1Tx23f90zdDTE5UL_iv3ANxX6TlO20Sw2jkBOTCcfBAo/edit#gid=0 (remove idref)
 # https://docs.google.com/spreadsheets/d/1TqFUiOyHMdo9R1_8eW0EfqBu6_OJQpJFtLwX_lIYK9A/edit#gid=0 (wrong aff)
+# https://docs.google.com/spreadsheets/d/1TGnv6tNYLnNQhcGQORsoMWu878RQ0kGiCMB7OKwknLM/edit#gid=0 (black list publi)
 
 def get_manual_match():
     #download_object('misc', 'manual_idref.json', '/upw_data/manual_idref.json')

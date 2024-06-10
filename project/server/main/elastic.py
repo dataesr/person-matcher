@@ -52,6 +52,15 @@ def get_analyzers() -> dict:
                 'icu_folding'
             ]
         },
+        'heavy': {
+            'tokenizer': 'icu_tokenizer',
+            'filter': [
+                'lowercase',
+                'french_elision',
+                'icu_folding',
+                'french_stemmer'
+            ]
+        },
         "autocomplete": {
           "type": "custom",
           "tokenizer": "icu_tokenizer",
@@ -70,6 +79,10 @@ def get_filters() -> dict:
             'type': 'elision',
             'articles_case': True,
             'articles': ['l', 'm', 't', 'qu', 'n', 's', 'j', 'd', 'c', 'jusqu', 'quoiqu', 'lorsqu', 'puisqu']
+        },
+        "french_stemmer": {
+          "type": "stemmer",
+          "language": "light_french"
         },
         "autocomplete_filter": {
           "type": "edge_ngram",
@@ -104,17 +117,17 @@ def reset_index_scanr(index: str) -> None:
             }
 
 
-    for f in ['lastName', 'fullName', 'label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
+    for f in ['label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
         mappings['properties'][f] = { 
                 'type': 'text',
-                'analyzer': 'light',
+                'analyzer': 'heavy',
                 'fields': {
                     'keyword': {
                         'type':  'keyword'
                     }
                 }
             }
-    for f in ['firstName', 'leaders.firstName', 'leaders.lastName', 
+    for f in ['lastName', 'fullName', 'firstName', 'leaders.firstName', 'leaders.lastName', 
              'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
             'participants.label.default']:
         mappings['properties'][f] = { 
@@ -135,7 +148,7 @@ def reset_index_scanr(index: str) -> None:
     for f in ['web_content']: 
         mappings['properties'][f] = { 
                 'type': 'text',
-                'analyzer': 'light',
+                'analyzer': 'heavy',
             }
 
     dynamic_match = None

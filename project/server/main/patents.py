@@ -66,6 +66,9 @@ def load_patents(args):
         patents = c.to_dict(orient='records')
         denormalized_patents = []
         for p in patents:
+            for f in ['id', 'inpadocFamily']:
+                if p.get(f):
+                    p[f] = str(p[f])
             new_affiliations = []
             for aff_id in get_structures_from_patent(p):
                 denormalized_organization = get_orga(df_orga, aff_id)

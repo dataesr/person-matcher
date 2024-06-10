@@ -273,9 +273,9 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
                     if isinstance(a.get('affiliations', []), list):
                         for aff in a.get('affiliations', []):
                             denormalized = get_orga(df_orga, aff)
-                            if denormalized and denormalized.get('label', {}).get('default'):
+                            if denormalized and isinstance(denormalized.get('label'), dict) and isinstance(denormalized.get('label').get('default'), str):
                                 if aff not in affiliations:
-                                    affiliations[aff] = {'structure': denormalized, 'sources': [], 'sources_id': set([])}
+                                    affiliations[aff] = {'structure': denormalized, 'sources': [], 'publicationsCount': 0, 'sources_id': set([])}
                                 if p['id'] not in affiliations[aff]['sources_id']:
                                     affiliations[aff]['sources'].append({'id': p['id'], 'year': year})
                                     affiliations[aff]['sources_id'].add(p['id'])
@@ -305,11 +305,13 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
             'topDomains': top_domains, 
             'publicationsCount': len(author_publications)
             }
-    affiliations = [a for a in list(affiliations.values()) if a.get('startDate')]
+    IDENTIFIED_PB = set(['200117270X', '201722498K', '200919205R'])
+    affiliations = [a for a in list(affiliations.values()) if a.get('startDate') and a.get('structure', {}).get('id') not in IDENTIFIED_PB]
     affiliations = sorted(affiliations, key=lambda e:e.get('startDate'), reverse=True)
     recent_affiliations = []
     for a in affiliations:
         if 'sources_id' in a:
+            a['publicationsCount'] = len(a['sources_id'])
             del a['sources_id']
     if affiliations:
         person['affiliations'] = affiliations
@@ -318,7 +320,7 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
             if "Structure de recherche" in aff.get('structure', {}).get('kind', []):
                 recent_affiliations.append(aff)
     if recent_affiliations:
-        person['recentAffiliations'] = recent_affiliations
+        person['recentAffiliations'] = sorted(recent_affiliations, key=lambda a: a['publicationsCount'], reverse=True)[0:5]
     if isinstance(prizes, list):
         awards = []
         for p in prizes:
@@ -335,7 +337,7 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
             if award:
                 awards.append(award)
         if awards:
-            person['awards'] = awards
+            person['awards'] = sorted(awards, key = lambda x:x.get('date', '0000'), reverse=True)
     if isinstance(externalIds, list):
         person['externalIds'] = externalIds
         if 'idref' not in [ex.get('type') for ex in externalIds]:

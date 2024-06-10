@@ -9,6 +9,7 @@ from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, 
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
 from project.server.main.ods import get_awards, get_agreements
+from project.server.main.export_data_without_tunnel import dump_from_http
 
 import pysftp
 import requests
@@ -77,6 +78,8 @@ def compute_reverse_relations(data):
 def load_orga(args):
     index_name = args.get('index_name')
     get_zip_from_crawler = args.get('get_zip_from_crawler', True)
+    if args.get('export_from_source', False):
+        dump_from_http()
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)

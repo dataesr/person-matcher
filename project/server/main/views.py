@@ -8,7 +8,6 @@ import pymongo
 from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications, match_all
-from project.server.main.scanr import export_scanr, upload_sword
 from project.server.main.scanr2 import export_scanr2
 from project.server.main.projects import load_projects
 from project.server.main.patents import load_patents
@@ -57,28 +56,15 @@ def run_task_scanr_other():
 @main_blueprint.route("/scanr", methods=["POST"])
 def run_task_scanr():
     args = request.get_json(force=True)
-    denormalized = args.get('denormalized', False)
     with Connection(redis.from_url(current_app.config["REDIS_URL"])):
         q = Queue("person-matcher", default_timeout=21600000)
-        if denormalized:
-            task = q.enqueue(export_scanr2, args)
-        else:
-            task = q.enqueue(export_scanr, args)
+        task = q.enqueue(export_scanr2, args)
     response_object = {
         "status": "success",
         "data": {
             "task_id": task.get_id()
         }
     }
-    return jsonify(response_object), 202
-
-@main_blueprint.route('/upload_sword', methods=['POST'])
-def run_task_upload_sword():
-    args = request.get_json(force=True)
-    with Connection(redis.from_url(current_app.config['REDIS_URL'])):
-        q = Queue(name='person-matcher', default_timeout=21600000)
-        task = q.enqueue(upload_sword, args)
-    response_object = {'status': 'success', 'data': {'task_id': task.get_id()}}
     return jsonify(response_object), 202
 
 @main_blueprint.route("/match_all", methods=["POST"])
