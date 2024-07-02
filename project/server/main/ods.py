@@ -53,7 +53,7 @@ def get_awards():
         if row.laureat_identifiant_rnsr==row.laureat_identifiant_rnsr:
             current_id = row.laureat_identifiant_rnsr
         if row.laureat_identifiant_siret == row.laureat_identifiant_siret:
-            current_id = str(int(row.row.laureat_identifiant_siret))[0:9]
+            current_id = str(int(row.laureat_identifiant_siret))[0:9]
         if current_id not in awards_dict:
                awards_dict[current_id] = []
         awards_dict[current_id].append({
