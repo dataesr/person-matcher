@@ -56,9 +56,14 @@ def get_awards():
             current_id = str(int(row.laureat_identifiant_siret))[0:9]
         if current_id not in awards_dict:
                awards_dict[current_id] = []
+        year = None
+        try:
+            year = int(str(row.prix_annee)[0:4])
+        except:
+            logger.debug(f'prix_annee parsing failed for {row.prix_annee}')
         awards_dict[current_id].append({
             'label': row.prix_libelle,
-            'year': int(row.prix_annee)
+            'year': year
         })
 
 
