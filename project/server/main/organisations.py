@@ -220,6 +220,7 @@ def post_treatment_and_load(args):
         for new_p in c.to_dict(orient='records'):
             ai_desc_elt = get_ai_desc(new_p['id'], df_ai_description)
             new_p.update(ai_desc_elt)
+            new_p['id'] = str(new_p['id'])
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl')
         ix += 1
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl', index_name)
