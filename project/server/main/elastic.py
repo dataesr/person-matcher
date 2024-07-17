@@ -139,7 +139,8 @@ def reset_index_scanr(index: str) -> None:
                     }
                 }
             }
-    for f in ['address.address', 'address.city', 'address.country', 'description.fr', 'description.en', 'description.default']: 
+    for f in ['address.address', 'address.city', 'address.country', 'description.fr', 'description.en', 'description.default', 
+            'ai_description.description.fr', 'ai_description.description.en', 'ai_description.description.default']: 
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'light',

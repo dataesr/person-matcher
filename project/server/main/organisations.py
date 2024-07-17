@@ -89,10 +89,27 @@ def load_orga(args):
         map_patent_orga = get_patents_orga_dict()
         map_agreements = get_agreements()
         map_awards = get_awards()
+
+        url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
+        df_ai_description = pd.read_json(url_ai_desc)
+
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
             new_p = p.copy()
             current_id = new_p['id']
+            
+            new_p['has_ai_description'] = False
+            df_ai_description_tmp = df_ai_description[df_ai_description.index==current_id]
+            if len(df_ai_description_tmp)>0:
+                ai_desc_data = df_ai_description_tmp.to_dict(orient='records')[0]
+                ai_description = {
+                   'creation_date': ai_desc_data['creation_date'],
+                  'model': ai_desc_data['mistral_model'],
+                  'description': ai_desc_data['data']['description_mistral']
+                }
+                new_p['ai_description'] = ai_description
+                new_p['has_ai_description'] = True
+
             reasons_scanr = []
             if new_p.get('status') == 'active' and isinstance(new_p.get('links'), list):
                 web_content = get_html_from_crawler(current_id = current_id, get_zip = get_zip_from_crawler)
