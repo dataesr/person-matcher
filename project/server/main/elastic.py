@@ -27,7 +27,7 @@ def delete_index(index: str) -> None:
 def refresh_index(index):
     logger.debug(f'Refreshing {index}')
     es = get_client()
-    response = es.indices.refresh(index=index)
+    response = es.indices.refresh(index=index, timeout=600)
     logger.debug(response)
 
 @exception_handler

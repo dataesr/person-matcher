@@ -75,8 +75,28 @@ def compute_reverse_relations(data):
                         reverse_relation[f][reversed_elt_id].append(new_reverse)
     return reverse_relation
 
+def get_ai_desc(current_id, df_ai_description):
+    new_p = {}
+    new_p['has_ai_description'] = False
+    df_ai_description_tmp = df_ai_description[df_ai_description.index==current_id]
+    if len(df_ai_description_tmp)>0:
+        ai_desc_data = df_ai_description_tmp.to_dict(orient='records')[0]
+        ai_description = {
+            'creation_date': ai_desc_data['creation_date'],
+            'model': ai_desc_data['mistral_model'],
+            'description': ai_desc_data['data']['description_mistral']
+        }
+        new_p['ai_description'] = ai_description
+        new_p['has_ai_description'] = True
+    return new_p
+
 def load_orga(args):
     index_name = args.get('index_name')
+
+    if args.get('post_treatment'):
+        post_treatment_and_load(args)
+        return
+
     get_zip_from_crawler = args.get('get_zip_from_crawler', True)
     if args.get('export_from_source', False):
         dump_from_http()
@@ -91,24 +111,15 @@ def load_orga(args):
         map_awards = get_awards()
 
         url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
-        df_ai_description = pd.read_json(url_ai_desc)
+        df_ai_description = pd.read_json(url_ai_descr)
 
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
             new_p = p.copy()
             current_id = new_p['id']
             
-            new_p['has_ai_description'] = False
-            df_ai_description_tmp = df_ai_description[df_ai_description.index==current_id]
-            if len(df_ai_description_tmp)>0:
-                ai_desc_data = df_ai_description_tmp.to_dict(orient='records')[0]
-                ai_description = {
-                   'creation_date': ai_desc_data['creation_date'],
-                  'model': ai_desc_data['mistral_model'],
-                  'description': ai_desc_data['data']['description_mistral']
-                }
-                new_p['ai_description'] = ai_description
-                new_p['has_ai_description'] = True
+            ai_desc_elt = get_ai_desc(current_id, df_ai_description)
+            new_p.update(ai_desc_elt)
 
             reasons_scanr = []
             if new_p.get('status') == 'active' and isinstance(new_p.get('links'), list):
@@ -192,6 +203,27 @@ def load_orga(args):
     load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized.jsonl', index_name)
     os.system(f'cd {MOUNTED_VOLUME}scanr/organizations && rm -rf organizations_denormalized.jsonl.gz && gzip -k organizations_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/organizations/organizations_denormalized.jsonl.gz', destination='production/organizations_denormalized.jsonl.gz')
+
+
+def post_treatment_and_load(args):
+    logger.debug('loading existing file')
+    index_name = args.get('index_name')
+    df = pd.read_json('/upw_data/scanr/organizations/organizations_denormalized.jsonl.gz', lines=True, chunksize=1000)
+    
+    url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
+    df_ai_description = pd.read_json(url_ai_descr)
+    
+    os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl')
+    ix = 0
+    for c in df:
+        logger.debug(f'chunk {ix}')
+        for new_p in c.to_dict(orient='records'):
+            ai_desc_elt = get_ai_desc(new_p['id'], df_ai_description)
+            new_p.update(ai_desc_elt)
+            to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl')
+        ix += 1
+    load_scanr_orga('/upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl', index_name)
+
 
 def load_scanr_orga(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized.split('/')[-1]
