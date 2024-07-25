@@ -84,7 +84,7 @@ def get_ai_desc(current_id, df_ai_description):
         ai_description = {
             'creation_date': ai_desc_data['creation_date'],
             'model': ai_desc_data['mistral_model'],
-            'description': ai_desc_data['data']['description_mistral']
+            'description': ai_desc_data['mistral_description']
         }
         new_p['ai_description'] = ai_description
         new_p['has_ai_description'] = True
@@ -111,7 +111,7 @@ def load_orga(args):
         map_awards = get_awards()
 
         url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
-        df_ai_description = pd.read_json(url_ai_descr)
+        df_ai_description = pd.read_json(url_ai_descr, orient="index")
 
         os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized.jsonl')
         for ix, p in enumerate(orga):
