@@ -211,7 +211,7 @@ def post_treatment_and_load(args):
     df = pd.read_json('/upw_data/scanr/organizations/organizations_denormalized.jsonl.gz', lines=True, chunksize=1000)
     
     url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
-    df_ai_description = pd.read_json(url_ai_descr)
+    df_ai_description = pd.read_json(url_ai_descr, orient="index")
     
     os.system('rm -rf /upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl')
     ix = 0
