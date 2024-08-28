@@ -118,7 +118,7 @@ def load_orga(args):
             new_p = p.copy()
             current_id = new_p['id']
             
-            ai_desc_elt = get_ai_desc(current_id, df_ai_description)
+            ai_desc_elt = get_ai_desc(str(current_id), df_ai_description)
             new_p.update(ai_desc_elt)
 
             reasons_scanr = []
@@ -218,7 +218,7 @@ def post_treatment_and_load(args):
     for c in df:
         logger.debug(f'chunk {ix}')
         for new_p in c.to_dict(orient='records'):
-            ai_desc_elt = get_ai_desc(new_p['id'], df_ai_description)
+            ai_desc_elt = get_ai_desc(str(new_p['id']), df_ai_description)
             new_p.update(ai_desc_elt)
             new_p['id'] = str(new_p['id'])
             to_jsonl([new_p], '/upw_data/scanr/organizations/organizations_denormalized_post_treated.jsonl')
