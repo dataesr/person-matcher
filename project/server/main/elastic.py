@@ -129,7 +129,8 @@ def reset_index_scanr(index: str) -> None:
             }
     for f in ['lastName', 'fullName', 'firstName', 'leaders.firstName', 'leaders.lastName', 
              'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
-            'participants.label.default']:
+            'participants.label.default',
+            'inventors.name', 'applicants.name']:
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'light',

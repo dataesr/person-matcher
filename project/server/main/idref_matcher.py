@@ -1,10 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
+from retry import retry
 
 from project.server.main.strings import normalize, remove_parenthesis, str_footprint
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@retry(delay=200, tries=5)
+def get_url(url):
+    return requests.get(url).text
 
 def name_idref_match(first_name, last_name, full_name):
     
@@ -36,7 +42,7 @@ def name_idref_match(first_name, last_name, full_name):
         url = f'https://www.idref.fr/Sru/Solr?q=persname_t:({searched_name})%20AND%20recordtype_z:a&rows=100'
     
     if url:
-        xml_response = requests.get(url).text
+        xml_response = get_url(url)
         matching_idrefs = filter_xml_response(xml_response, first_name, last_name, full_name)
         if len(matching_idrefs) == 1:
             return matching_idrefs[0]

@@ -230,6 +230,26 @@ def export_scanr2(args):
     load_scanr_persons('/upw_data/scanr/persons_denormalized.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
 
 
+def post_treatment_persons(args):
+    index_name = args.get('index_name')
+    if args.get('reload_index_only', False) is False:
+        df = pd.read_json('/upw_data/scanr/persons_denormalized.jsonl', lines=True, chunksize=10000)
+        os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized_post_treated.jsonl')
+        ix = -1
+        for c in df:
+            ix += 1
+            logger.debug (f'{ix} chunk post treatment')
+            persons = c.to_dict(orient='records')
+            new_persons = []
+            for person in persons:
+                for f in ['firstName', 'lastName', 'fullName']:
+                    if person.get(f) and isinstance(person[f], str):
+                        person[f] = person[f].replace("’", "'")
+                new_persons.append(person)
+            to_jsonl(new_persons, f'{MOUNTED_VOLUME}scanr/persons_denormalized_post_treated.jsonl')
+    load_scanr_persons('/upw_data/scanr/persons_denormalized_post_treated.jsonl', index_name)
+
+
 def export_one_person(idref, publications, input_dict, df_orga, ix):
     prizes, links, externalIds = [], [], []
     if idref in input_dict:
@@ -365,6 +385,9 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
     for f in ['lastName', 'fullName']:
         if person.get(f):
             text_to_autocomplete.append(person[f])
+    for f in ['firstName', 'lastName', 'fullName']:
+        if person.get(f):
+            person[f] = person[f].replace("’", "'")
     for ext in person.get('externalIds', []):
         if isinstance(ext.get('id'), str):
             text_to_autocomplete.append(ext['id'])

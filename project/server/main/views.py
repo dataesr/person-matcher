@@ -8,7 +8,7 @@ import pymongo
 from project.server.main.utils import chunks, to_jsonl
 from project.server.main.tasks import create_task_match
 from project.server.main.matcher import pre_process_publications, match_all
-from project.server.main.scanr2 import export_scanr2
+from project.server.main.scanr2 import export_scanr2, post_treatment_persons
 from project.server.main.projects import load_projects
 from project.server.main.patents import load_patents
 from project.server.main.organisations import load_orga
@@ -45,6 +45,10 @@ def run_task_scanr_other():
         with Connection(redis.from_url(current_app.config["REDIS_URL"])):
             q = Queue("person-matcher", default_timeout=21600000)
             task = q.enqueue(load_geo, args)
+    if args.get('persons_post_treatment'):
+        with Connection(redis.from_url(current_app.config["REDIS_URL"])):
+            q = Queue("person-matcher", default_timeout=21600000)
+            task = q.enqueue(post_treatment_persons, args)
     response_object = {
         "status": "success",
         "data": {
