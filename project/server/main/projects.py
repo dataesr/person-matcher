@@ -7,6 +7,7 @@ from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_project
+from project.server.main.export_data_without_tunnel import dump_from_http
 
 import pysftp
 import requests
@@ -43,6 +44,8 @@ def get_phc_duplicates(df):
 
 def load_projects(args):
     index_name = args.get('index_name')
+    if args.get('export_from_source', True):
+        dump_from_http('projects')
     if args.get('reload_index_only', False) is False:
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
         phc_duplicates = get_phc_duplicates(df)

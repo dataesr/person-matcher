@@ -99,7 +99,7 @@ def load_orga(args):
 
     get_zip_from_crawler = args.get('get_zip_from_crawler', True)
     if args.get('export_from_source', False):
-        dump_from_http()
+        dump_from_http('organizations')
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
