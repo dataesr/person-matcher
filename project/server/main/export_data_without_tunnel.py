@@ -67,4 +67,4 @@ def dump_from_http(db):
     os.system(f'rm -rf /upw_data/scanr/{db}.jsonl')
     to_jsonl(current_list2, f'/upw_data/scanr/{db}.jsonl')
     os.system(f'cd /upw_data/scanr && rm -rf {db}.jsonl.gz && gzip -k {db}.jsonl')
-    upload_object(container='scanr-data', source = f'/upw_data/scanr/{db}.jsonl.gz', destination='production/{db}.jsonl.gz')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/{db}.jsonl.gz', destination=f'production/{db}.jsonl.gz')
