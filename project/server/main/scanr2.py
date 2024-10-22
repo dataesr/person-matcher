@@ -153,7 +153,8 @@ def export_scanr2(args):
         # writing output idrefs
         logger.debug(f'writing {MOUNTED_VOLUME}output_idrefs.csv')
         os.system(f'echo "idref" > {MOUNTED_VOLUME}output_idrefs.csv')
-        cmd = f"mongoexport --forceTableScan --uri mongodb://mongo:27017/scanr --collection person_matcher_output --fields person_id --type=csv --noHeaderLine --out {MOUNTED_VOLUME}tmp.csv && cat {MOUNTED_VOLUME}tmp.csv | sort -u >> {MOUNTED_VOLUME}output_idrefs.csv"
+        # export all the idrefs not linked to a sudoc - that is the target
+        cmd = f"mongoexport --forceTableScan --uri mongodb://mongo:27017/scanr --collection person_matcher_output --fields person_id,publication_id --type=csv --noHeaderLine --out {MOUNTED_VOLUME}tmp.csv && cat {MOUNTED_VOLUME}tmp.csv | grep -v sudoc | cut -d ',' -f 1 | sort -u >> {MOUNTED_VOLUME}output_idrefs.csv"
         os.system(cmd)
         os.system(f'rm -rf {MOUNTED_VOLUME}tmp.csv')
 
