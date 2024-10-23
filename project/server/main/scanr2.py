@@ -161,6 +161,7 @@ def export_scanr2(args):
     if args.get('reload_index_only', False) is False:
         df = pd.read_csv(f'{MOUNTED_VOLUME}/output_idrefs.csv')
         idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
+        nbTotalIdrefs = len(idrefs)
         logger.debug(f'{len(idrefs)} idrefs')
         #download_object('misc', 'vip.jsonl', f'{MOUNTED_VOLUME}vip.jsonl')
         #input_idrefs = pd.read_json(f'{MOUNTED_VOLUME}vip.jsonl', lines=True).to_dict(orient='records')
@@ -220,7 +221,7 @@ def export_scanr2(args):
                 #        publis_to_add = get_publications_from_ids(publi_id_to_add)
                 #        author_publications = author_publications + publis_to_add
                 #        logger.debug(f"added {len(publis_to_add)} publications manually to {idref}")
-                person = export_one_person(idref, author_publications, input_dict, df_orga, ix)
+                person = export_one_person(idref, author_publications, input_dict, df_orga, ix, nbTotalIdrefs)
                 ix += 1
                 if person:
                     new_persons.append(person)
@@ -251,7 +252,7 @@ def post_treatment_persons(args):
     load_scanr_persons('/upw_data/scanr/persons_denormalized_post_treated.jsonl', index_name)
 
 
-def export_one_person(idref, publications, input_dict, df_orga, ix):
+def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdrefs):
     prizes, links, externalIds = [], [], []
     if idref in input_dict:
         current_data = input_dict[idref]
@@ -260,7 +261,7 @@ def export_one_person(idref, publications, input_dict, df_orga, ix):
         externalIds = current_data.get('externalIds')
     if len(publications)==0:
         return None
-    logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix})')
+    logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix}/{nbTotalIdrefs})')
     domains, co_authors, author_publications = [], [], []
     co_authors_id = set([])
     affiliations, names = {}, {}
