@@ -7,6 +7,7 @@ from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
+from project.server.main.utils_patents import get_co_occurences
 
 import pysftp
 import requests
@@ -62,19 +63,31 @@ def load_patents(args):
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
     df_orga = get_orga_data()
     os.system('rm -rf /upw_data/scanr/patents_denormalized.jsonl')
+
     for c in df:
         patents = c.to_dict(orient='records')
         denormalized_patents = []
+
         for p in patents:
             for f in ['id', 'inpadocFamily']:
                 if p.get(f):
                     p[f] = str(p[f])
+
+            # co_occurences
+            p["co_persons"] = get_co_occurences([ap for ap in p.get("applicants", []) if ap.get("type") == "person"], "name")
+            p["co_organizations"] = get_co_occurences([ap for ap in p.get("applicants", []) if ap.get("type") == "organisation"], "name")
+            p["co_cpc_section"] = get_co_occurences((p.get("cpc") or {}).get("section", []), "label")
+            p["co_cpc_classe"] = get_co_occurences((p.get("cpc") or {}).get("classe", []), "label")
+            p["co_cpc_ss_classe"] = get_co_occurences((p.get("cpc") or {}).get("ss_classe", []), "label")
+
             new_affiliations = []
             for aff_id in get_structures_from_patent(p):
                 denormalized_organization = get_orga(df_orga, aff_id)
                 new_affiliations.append(denormalized_organization)
             p['denormalized_structures'] = new_affiliations
+
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
+
     load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf patents_denormalized.jsonl.gz && gzip -k patents_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/patents_denormalized.jsonl.gz', destination='production/patents_denormalized.jsonl.gz')
