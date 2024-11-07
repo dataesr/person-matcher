@@ -1,15 +1,15 @@
 DOCKER_IMAGE_NAME=dataesr/person-matcher
+GHCR_IMAGE_NAME=ghcr.io/$(DOCKER_IMAGE_NAME)
 CURRENT_VERSION=$(shell cat project/__init__.py | cut -d "'" -f 2)
 
 docker-build:
 	@echo Building a new docker image
-	docker build -t $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION) -t $(DOCKER_IMAGE_NAME):latest .
+	docker build -t $(GHCR_IMAGE_NAME):$(CURRENT_VERSION) -t $(GHCR_IMAGE_NAME):latest .
 	@echo Docker image built
 
 docker-push:
 	@echo Pushing a new docker image
-	docker push $(DOCKER_IMAGE_NAME):$(CURRENT_VERSION)
-	docker push $(DOCKER_IMAGE_NAME):latest
+	docker push -a $(GHCR_IMAGE_NAME)
 	@echo Docker image pushed
 
 install:
