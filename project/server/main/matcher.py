@@ -3,7 +3,7 @@ from project.server.main.idref_matcher import name_idref_match
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
-from project.server.main.utils import chunks, to_jsonl
+from project.server.main.utils import chunks, to_jsonl, get_all_manual_matches
 
 import requests
 import multiprocess as mp
@@ -26,7 +26,7 @@ def get_manual_match():
     download_object('misc', 'orcid_idref.jsonl', '/upw_data/orcid_idref.jsonl')
     publi_author_dict = {}
     #manual_infos = pd.read_json('/upw_data/manual_idref.json', lines=True).to_dict(orient='records')
-    manual_infos = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv').to_dict(orient='records')
+    manual_infos = get_all_manual_matches().to_dict(orient='records')
     orcid_infos = pd.read_json('/upw_data/orcid_idref.jsonl', lines=True).to_dict(orient='records')
     infos = manual_infos + orcid_infos
     for a in infos:

@@ -1,7 +1,14 @@
 import json
+import pandas as pd
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
+
+def get_all_manual_matches():
+    old_matches = pd.read_csv('manual_matches.csv.gz')
+    new_matches = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv')
+    matches = pd.concat([old_matches, new_matches])
+    return matches
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""

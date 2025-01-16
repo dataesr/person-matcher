@@ -36,3 +36,20 @@ def load_geo(args):
     logger.debug('starting import in elastic')
     os.system(elasticimport)
     refresh_index(index_name)
+
+def load_country(args):
+    index_name = args.get('index_name')
+    r = requests.get('http://185.161.45.213/organizations/_distinct/scanr/address.country', headers={'Authorization': f"Basic {os.getenv('DATAESR_HEADER')}"}).json()
+    data = [ {'autocompleted': [loc]} for loc in r['values']]
+    geo_file = '/upw_data/scanr/countries.jsonl'
+    os.system(f'rm -rf {geo_file}')
+    to_jsonl(data, geo_file)
+    es_url_without_http = ES_URL.replace('https://','').replace('http://','')
+    es_host = f'https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}'
+    logger.debug('loading scanr-countries index')
+    reset_index_scanr(index=index_name)
+    elasticimport = f"elasticdump --input={geo_file} --output={es_host}{index_name} --type=data --limit 500 " + "--transform='doc._source=Object.assign({},doc)'"
+    logger.debug(f'{elasticimport}')
+    logger.debug('starting import in elastic')
+    os.system(elasticimport)
+    refresh_index(index_name)

@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json
+from project.server.main.utils import chunks, to_jsonl, to_json, get_all_manual_matches
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
@@ -34,7 +34,7 @@ LIMIT_GET_PUBLICATIONS_PROJECT = 500
 
 def get_manual_matches():
     publi_author_dict = {}
-    manual_infos = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv').to_dict(orient='records')
+    manual_infos = get_all_manual_matches().to_dict(orient='records')
     infos = manual_infos
     for a in infos:
         author_key = None
