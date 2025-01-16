@@ -7,7 +7,11 @@ from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
-from project.server.main.utils_patents import get_co_occurences
+from project.server.main.utils_patents import (
+    patents_applicants_add_idnames,
+    patents_cpc_add_idnames,
+    patents_get_co_occurences,
+)
 
 import pysftp
 import requests
@@ -73,12 +77,35 @@ def load_patents(args):
                 if p.get(f):
                     p[f] = str(p[f])
 
+            # id_names
+            if p.get("applicants"):
+                p["applicants"] = patents_applicants_add_idnames(p["applicants"])
+            if p.get("cpc"):
+                for group in ["section", "classe", "ss_classe"]:
+                    if p["cpc"].get(group):
+                        p["cpc"][group] = patents_cpc_add_idnames(p["cpc"][group])
+
             # co_occurences
-            p["co_persons"] = get_co_occurences([ap for ap in p.get("applicants", []) if ap.get("type") == "person"], "name")
-            p["co_organizations"] = get_co_occurences([ap for ap in p.get("applicants", []) if ap.get("type") == "organisation"], "name")
-            p["co_cpc_section"] = get_co_occurences((p.get("cpc") or {}).get("section", []), "label")
-            p["co_cpc_classe"] = get_co_occurences((p.get("cpc") or {}).get("classe", []), "label")
-            p["co_cpc_ss_classe"] = get_co_occurences((p.get("cpc") or {}).get("ss_classe", []), "label")
+            co_persons = patents_get_co_occurences(
+                [ap for ap in p.get("applicants", []) if ap.get("type") == "person"], "id_name"
+            )
+            co_organizations = patents_get_co_occurences(
+                [ap for ap in p.get("applicants", []) if ap.get("type") == "organisation"], "id_name"
+            )
+            co_cpc_section = patents_get_co_occurences((p.get("cpc") or {}).get("section", []), "id_name")
+            co_cpc_classe = patents_get_co_occurences((p.get("cpc") or {}).get("classe", []), "id_name")
+            co_cpc_ss_classe = patents_get_co_occurences((p.get("cpc") or {}).get("ss_classe", []), "id_name")
+
+            if co_persons:
+                p["co_persons"] = co_persons
+            if co_organizations:
+                p["co_organizations"] = co_organizations
+            if co_cpc_section:
+                p["co_cpc_section"] = co_cpc_section
+            if co_cpc_classe:
+                p["co_cpc_classe"] = co_cpc_classe
+            if co_cpc_ss_classe:
+                p["co_cpc_ss_classe"] = co_cpc_ss_classe
 
             new_affiliations = []
             for aff_id in get_structures_from_patent(p):
