@@ -37,7 +37,7 @@ def get_manual_match():
             author_key = normalize(a.get('full_name'), remove_space=True)
         publi_id = a.get('publi_id')
         person_id = a.get('person_id')
-        if author_key and publi_id and person_id:
+        if isinstance(author_key, str) and isinstance(publi_id, str) and isinstance(person_id, str):
             publi_author_dict[f'{publi_id.strip()};{author_key}'] = person_id.strip()
     return publi_author_dict
 
