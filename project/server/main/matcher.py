@@ -65,7 +65,7 @@ def pre_process_publications(args):
     split_prefix = f'{index_name}_split_'
     files_to_concat = []
     for f in os.listdir('/upw_data/scanr-split'):
-        if f.startswith(f'{split_prefix}') and '_extract' not in f:
+        if f.startswith(f'{split_prefix}') and ('_extract' not in f) and ('denormalized' not in f):
             files_to_concat.append(f'/upw_data/scanr-split/{f}')
     files_to_concat.sort()
     for f in files_to_concat:
