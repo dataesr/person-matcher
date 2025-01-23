@@ -1,4 +1,5 @@
 import pandas as pd
+from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -26,10 +27,7 @@ def compute_is_french(elt_id, mainAddress):
     return isFrench
 
 def get_orga_data():
-    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
-    df = pd.read_json(url, lines=True)
-    #df = df.set_index('id')
-    data = df.to_dict(orient='records')
+    data = orga_with_ed()
     orga_map = {}
     for elt in data:
         res = {}

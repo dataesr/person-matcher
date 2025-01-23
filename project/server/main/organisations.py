@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json
+from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
 from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
@@ -102,8 +102,7 @@ def load_orga(args):
         dump_from_http('organizations')
     if args.get('reload_index_only', False) is False:
         df_orga = get_orga_data()
-        df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
-        orga = df.to_dict(orient='records')
+        orga = orga_with_ed()
         reverse_relation = compute_reverse_relations(orga)
         map_proj_orga = get_link_orga_projects()
         map_patent_orga = get_patents_orga_dict()
