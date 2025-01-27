@@ -53,12 +53,25 @@ def load_projects(args):
         df_orga = get_orga_data()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         denormalized_projects = []
+        denormalized_affiliations = []
         for ix, p in enumerate(projects):
             for part in p.get('participants'):
                 part_id = part.get('structure')
                 if part_id:
                     denormalized_organization = get_orga(df_orga, part_id)
                     part['structure'] = denormalized_organization
+                    denormalized_affiliations.append(denormalized_organization)
+                co_countries = get_co_occurences(denormalized_affiliations, 'country')
+                if co_countries:
+                    elt['co_countries'] = co_countries
+                structures_to_combine = [a for a in denormalized_affiliations if (('Structure de recherche' in a.get('kind', [])) and (a.get('status') == 'active'))]
+                co_structures = get_co_occurences(structures_to_combine, 'id_name')
+                if co_structures:
+                    elt['co_structures'] = co_structures
+                institutions_to_combine = [a for a in denormalized_affiliations if (('Structure de recherche' not in a.get('kind', [])) and (a.get('status') == 'active'))]
+                co_institutions = get_co_occurences(institutions_to_combine, 'id_name')
+                if co_institutions:
+                    elt['co_institutions'] = co_institutions
             text_to_autocomplete = []
             for lang in ['default', 'en', 'fr']:
                 for k in ['label', 'acronym']:

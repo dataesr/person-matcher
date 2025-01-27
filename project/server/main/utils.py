@@ -1,8 +1,22 @@
 import json
 import pandas as pd
+import itertools
 from project.server.main.logger import get_logger
 
+NB_MAX_CO_ELEMENTS = 20
+
 logger = get_logger(__name__)
+
+def get_co_occurences(my_list, my_field):
+    elts_to_combine = [a for a in my_list if a.get(my_field)]
+    values_to_combine = list(set([a[my_field] for a in elts_to_combine]))
+    values_to_combine.sort()
+    if len(values_to_combine) <= NB_MAX_CO_ELEMENTS:
+        combinations = list(set(itertools.combinations(values_to_combine, 2)))
+        combinations.sort()
+        res = [f'{a}---{b}' for (a,b) in combinations]
+        return res
+    return None
 
 def orga_with_ed():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
