@@ -4,6 +4,35 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
+def orga_with_ed():
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
+    df = pd.read_json(url, lines=True)
+    orga = df.to_dict(orient='records')
+    df_ed = pd.read_csv('./ed_idref.tsv', sep='\t')
+    df_ed.columns = ['ed', 'idref', 'label', 'paysage']
+    df_ed['ed'] = df_ed['ed'].apply(lambda x:'ED'+str(x))
+    ed_map = {}
+    for r in df_ed.itertuples():
+        ed_map[r.ed]={'id': r.ed, 'endDate': None, 'status': 'valid', 
+                      'label':{'fr': r.label, 'default': r.label},
+                      'kind': ['Secteur public'],
+                      'level': 'École doctorale',
+                     'legalCategory': {},
+                      'nature': 'Ecole doctorale',
+                      'isFrench': True,
+                      'externalIds': [{'id': r.ed, 'type': 'ed'},
+                                      {'id': 'idref'+r.idref, 'type': 'idref'}]}
+    updated = set()
+    for org in orga:
+        if org['id'] in ed_map:
+            org.update(ed_map[org['id']])
+            updated.add(org['id'])
+    for org in ed_map.values():
+        if org['id'] not in updated:
+            #print(org['id'])
+            orga.append(org)
+    return orga
+
 def get_all_manual_matches():
     old_matches = pd.read_csv('manual_matches.csv.gz')
     new_matches = pd.read_csv('https://docs.google.com/spreadsheets/d/e/2PACX-1vRtJvpjh4ySiniYVzgUYpGQVQEuNY7ZOpqPbi3tcyRfKiBaLnAgYziQgecX_kvwnem3fr0M34hyCTFU/pub?gid=1281340758&single=true&output=csv')
