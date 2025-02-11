@@ -18,6 +18,22 @@ def get_main_address(address):
                 del main_add[f]
     return main_add
 
+def get_name_by_lang(e, lang):
+    assert(lang in ['fr', 'en'])
+    if not isinstance(e, dict):
+        return None
+    if isinstance(e.get(lang), str):
+        return e[lang]
+    return None
+
+def get_default_name(e):
+    if not isinstance(e, dict):
+        return None
+    for f in ['default', 'en', 'fr']:
+        if isinstance(e.get(f), str):
+            return e[f]
+    return None
+
 def compute_is_french(elt_id, mainAddress):
     isFrench = True
     if 'grid' in elt_id or 'ror' in elt_id:

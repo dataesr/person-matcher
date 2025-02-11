@@ -251,6 +251,25 @@ def post_treatment_persons(args):
             to_jsonl(new_persons, f'{MOUNTED_VOLUME}scanr/persons_denormalized_post_treated.jsonl')
     load_scanr_persons('/upw_data/scanr/persons_denormalized_post_treated.jsonl', index_name)
 
+def get_domains_from_publications(publications):
+    domainsCount = {}
+    domains = []
+    for p in publications:
+        if isinstance(p.get('domains'), list):
+            for d in p.get('domains', []):
+                domain_key = d.get('label', {}).get('default', '').lower().strip() + ';' + d.get('code', 'nocode') + ';' + d.get('type', 'notype')
+                if len(domain_key) > 200:
+                    continue
+                if domain_key not in domainsCount:
+                    domainsCount[domain_key] = {'count': 0, 'domain': d}
+                domainsCount[domain_key]['count'] += 1
+    for domain_key in domainsCount:
+        domainsCount[domain_key]['domain']['count'] = domainsCount[domain_key]['count']
+    for d in list(domainsCount.values()):
+        domains.append(d['domain'])
+    domains = sorted(domains, key=lambda e:e['count'], reverse=True)
+    top_domains = domains[0:20]
+    return {'domains': domains[0:500], 'top_domains': top_domains}
 
 def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdrefs):
     prizes, links, externalIds = [], [], []
@@ -262,22 +281,13 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
     if len(publications)==0:
         return None
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix}/{nbTotalIdrefs})')
-    domains, co_authors, author_publications = [], [], []
+    co_authors, author_publications = [], [], []
     co_authors_id = set([])
     affiliations, names = {}, {}
-    domainsCount = {}
     for p in publications:
         year = p.get('year')
         if year:
             year = str(int(year)).replace('.0', '')
-        if isinstance(p.get('domains'), list):
-            for d in p.get('domains', []):
-                domain_key = d.get('label', {}).get('default', '').lower().strip() + ';' + d.get('code', 'nocode') + ';' + d.get('type', 'notype')
-                if len(domain_key) > 200:
-                    continue
-                if domain_key not in domainsCount:
-                    domainsCount[domain_key] = {'count': 0, 'domain': d}
-                domainsCount[domain_key]['count'] += 1
         if isinstance(p.get('authors', []), list):
             for a in p.get('authors', []):
                 if a.get(person_id_key) == 'idref'+idref:
@@ -314,12 +324,6 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
                     if a[person_id_key] not in co_authors_id:
                         co_authors.append({'person': a[person_id_key], 'fullName': a.get('fullName')})
                         co_authors_id.add(a[person_id_key])
-    for domain_key in domainsCount:
-        domainsCount[domain_key]['domain']['count'] = domainsCount[domain_key]['count']
-    for d in list(domainsCount.values()):
-        domains.append(d['domain'])
-    domains = sorted(domains, key=lambda e:e['count'], reverse=True)
-    top_domains = domains[0:20]
     person = {'id': f'idref{idref}', 
             'coContributors': co_authors, 
             'publications': author_publications, 
@@ -327,6 +331,8 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
             'topDomains': top_domains, 
             'publicationsCount': len(author_publications)
             }
+    domains_info = get_domains_from_publications(publications)
+    person.update(domains_info)
     IDENTIFIED_PB = set(['200117270X', '201722498K', '200919205R'])
     affiliations = [a for a in list(affiliations.values()) if a.get('startDate') and a.get('structure', {}).get('id') not in IDENTIFIED_PB]
     affiliations = sorted(affiliations, key=lambda e:e.get('startDate'), reverse=True)
