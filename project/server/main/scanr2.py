@@ -7,7 +7,7 @@ from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.vip import get_vip
-
+import pickle
 from datetime import date
 import dateutil.parser
 import pysftp
@@ -147,25 +147,49 @@ def get_not_to_export_idref():
     excluded = df['id'].dropna().apply(lambda x:x.replace('idref','')).to_list()
     return set(excluded)
 
+def split_file(input_dir, file_to_split, nb_lines, split_prefix, output_dir, split_suffix):
+    os.system(f'cd {input_dir} && split -l {nb_lines} {file_to_split} {split_prefix}')
+    os.system(f'mkdir -p {output_dir}')
+    os.system(f'rm -rf {output_dir}/{split_prefix}*')
+    idx_split = 0
+    local_files = os.listdir(input_dir)
+    local_files.sort()
+    for f in local_files:
+        if f.startswith(f"{split_prefix}"):
+            os.system(f'mv {input_dir}/{f} {output_dir}/{split_prefix}{idx_split}{split_suffix}')
+            idx_split += 1
+    logger.debug(f'{input_dir}/{file_to_split} has been splitted into {idx_split} files of {nb_lines} lines from {output_dir}/{split_prefix}0{split_suffix} to {output_dir}/{split_prefix}{idx_split - 1}{split_suffix}')
+
 def export_scanr2(args):
     index_name = args.get('index')
     if args.get('new_idrefs', True):
         # writing output idrefs
-        logger.debug(f'writing {MOUNTED_VOLUME}output_idrefs.csv')
-        os.system(f'echo "idref" > {MOUNTED_VOLUME}output_idrefs.csv')
+        gobal_file_authors = f'{MOUNTED_VOLUME}scanr_authors/output_idrefs.csv'
+        logger.debug(f'writing {gobal_file_authors}')
+        os.system(f'mkdir -p {MOUNTED_VOLUME}scanr_authors')
+        os.system(f'mkdir -p {MOUNTED_VOLUME}scanr_authors/split')
+        #os.system(f'echo "idref" > {MOUNTED_VOLUME}output_idrefs.csv')
         # export all the idrefs not linked to a sudoc - that is the target
-        cmd = f"mongoexport --forceTableScan --uri mongodb://mongo:27017/scanr --collection person_matcher_output --fields person_id,publication_id --type=csv --noHeaderLine --out {MOUNTED_VOLUME}tmp.csv && cat {MOUNTED_VOLUME}tmp.csv | grep -v sudoc | cut -d ',' -f 1 | sort -u >> {MOUNTED_VOLUME}output_idrefs.csv"
+        cmd = f"mongoexport --forceTableScan --uri mongodb://mongo:27017/scanr --collection person_matcher_output --fields person_id,publication_id --type=csv --noHeaderLine --out {MOUNTED_VOLUME}tmp.csv && cat {MOUNTED_VOLUME}tmp.csv | grep -v sudoc | cut -d ',' -f 1 | sort -u > {gobal_file_authors}"
         os.system(cmd)
         os.system(f'rm -rf {MOUNTED_VOLUME}tmp.csv')
+        split_file(f'{MOUNTED_VOLUME}scanr_authors', f'{gobal_file_authors}', 100000, 'authors-split_', f'{MOUNTED_VOLUME}scanr_authors/split', '.csv') 
+        input_dict = get_vip()
+    author_ix = args.get('author_ix')
+    if author_ix is None:
+        return
 
+    if author_ix == 0:
+        reset_index_scanr(index=index_name)
     if args.get('reload_index_only', False) is False:
-        df = pd.read_csv(f'{MOUNTED_VOLUME}/output_idrefs.csv')
+        assert(isinstance(author_ix, int))
+        df = pd.read_csv(f'{MOUNTED_VOLUME}/scanr_authors/split/authors-split_{author_ix}.csv', header=None, names=['idref'])
         idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
         nbTotalIdrefs = len(idrefs)
         logger.debug(f'{len(idrefs)} idrefs')
         #download_object('misc', 'vip.jsonl', f'{MOUNTED_VOLUME}vip.jsonl')
         #input_idrefs = pd.read_json(f'{MOUNTED_VOLUME}vip.jsonl', lines=True).to_dict(orient='records')
-        input_dict = get_vip()
+        input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
         #for e in input_idrefs:
         #    input_dict[e['id'].replace('idref','')] = e
         # add extra idref 
@@ -179,13 +203,13 @@ def export_scanr2(args):
         mycoll = mydb[collection_name]
         mycoll.create_index('authors.person')
         myclient.close()
-        os.system(f'rm -rf {MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
+        os.system(f'rm -rf /upw_data/scanr_authors/split/persons_denormalized_{author_ix}.jsonl')
         df_orga = get_orga_data()
         excluded = get_not_to_export_idref()
 
         #manual_matches = get_manual_matches()
 
-        idref_chunks = chunks(list(idrefs), 300)
+        idref_chunks = chunks(list(idrefs), 50)
         for idref_chunk in idref_chunks:
             publications_for_this_chunk = get_publications_for_idrefs([f'idref{g}' for g in idref_chunk])
             publications_dict = {}
@@ -225,11 +249,11 @@ def export_scanr2(args):
                 ix += 1
                 if person:
                     new_persons.append(person)
-            to_jsonl(new_persons, f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl')
-        os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf persons_denormalized.jsonl.gz && gzip -k persons_denormalized.jsonl')
-        upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/persons_denormalized.jsonl.gz', destination='production/persons_denormalized.jsonl.gz')
+            to_jsonl(new_persons, f'{MOUNTED_VOLUME}scanr_authors/split/persons_denormalized_{author_ix}.jsonl')
+        os.system(f'cd {MOUNTED_VOLUME}scanr_authors/split && rm -rf persons_denormalized_{author_ix}.jsonl.gz && gzip -k persons_denormalized_{author_ix}.jsonl')
+        upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr_authors/split/persons_denormalized_{author_ix}.jsonl.gz', destination=f'production/persons_denormalized_{author_ix}.jsonl.gz')
     
-    load_scanr_persons('/upw_data/scanr/persons_denormalized.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
+    load_scanr_persons('/upw_data/scanr_authors/split/persons_denormalized_{author_ix}.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
 
 
 def post_treatment_persons(args):
@@ -281,7 +305,7 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
     if len(publications)==0:
         return None
     logger.debug(f'{len(publications)} publications for idref{idref} (ix={ix}/{nbTotalIdrefs})')
-    co_authors, author_publications = [], [], []
+    co_authors, author_publications = [], []
     co_authors_id = set([])
     affiliations, names = {}, {}
     for p in publications:
@@ -327,8 +351,6 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
     person = {'id': f'idref{idref}', 
             'coContributors': co_authors, 
             'publications': author_publications, 
-            'domains': domains, 
-            'topDomains': top_domains, 
             'publicationsCount': len(author_publications)
             }
     domains_info = get_domains_from_publications(publications)
@@ -469,7 +491,6 @@ def load_scanr_persons(scanr_output_file_denormalized, index_name):
     es_url_without_http = ES_URL.replace('https://','').replace('http://','')
     es_host = f'https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}'
     logger.debug('loading scanr-persons index')
-    reset_index_scanr(index=index_name)
     elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 500 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
     logger.debug(f'{elasticimport}')
     logger.debug('starting import in elastic')

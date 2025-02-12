@@ -165,4 +165,5 @@ def get_vip():
         if current_prize not in idref_dict[idref]['prizes']:
             idref_dict[idref]['prizes'].append(current_prize)
     to_jsonl(list(idref_dict.values()), '/upw_data/vip.jsonl', 'w')
+    pickle.dump(idref_dict, open('/upw_data/idref_dict.pkl', 'wb'))
     return idref_dict
