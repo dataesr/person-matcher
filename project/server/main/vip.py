@@ -33,6 +33,7 @@ def get_matches(uri_prefix):
 
 @retry(delay=100, tries=10, logger=logger)
 def get_data_from_idref():
+    logger.debug(f'getting idref info')
     data_orcid = []
     orcid_matches = get_matches('https://orcid.org')
     for r in orcid_matches:
@@ -69,7 +70,7 @@ def get_data_from_idref():
 
 @retry(delay=100, tries=10, logger=logger)
 def get_aurehal(aurehal_type):
-    #logger.debug(f'start {aurehal_type} aurehal')
+    logger.debug(f'getting {aurehal_type} aurehal')
     nb_rows = 10000
     cursor='*'
     data = []
@@ -86,6 +87,7 @@ def get_aurehal(aurehal_type):
     return data
 
 def get_vip():
+    logger.debug(f'getting vip info')
     idref_dict = get_data_from_idref()
     aurehal_data = get_aurehal('author')
     for d in aurehal_data:
@@ -166,4 +168,5 @@ def get_vip():
             idref_dict[idref]['prizes'].append(current_prize)
     to_jsonl(list(idref_dict.values()), '/upw_data/vip.jsonl', 'w')
     pickle.dump(idref_dict, open('/upw_data/idref_dict.pkl', 'wb'))
+    logger.debug(f'{len(idref_dict)} vip idref retrieved')
     return idref_dict

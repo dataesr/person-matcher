@@ -163,6 +163,7 @@ def split_file(input_dir, file_to_split, nb_lines, split_prefix, output_dir, spl
 def export_scanr2(args):
     index_name = args.get('index')
     if args.get('new_idrefs', True):
+        input_dict = get_vip()
         # writing output idrefs
         gobal_file_authors = f'{MOUNTED_VOLUME}scanr_authors/output_idrefs.csv'
         logger.debug(f'writing {gobal_file_authors}')
@@ -173,8 +174,14 @@ def export_scanr2(args):
         cmd = f"mongoexport --forceTableScan --uri mongodb://mongo:27017/scanr --collection person_matcher_output --fields person_id,publication_id --type=csv --noHeaderLine --out {MOUNTED_VOLUME}tmp.csv && cat {MOUNTED_VOLUME}tmp.csv | grep -v sudoc | cut -d ',' -f 1 | sort -u > {gobal_file_authors}"
         os.system(cmd)
         os.system(f'rm -rf {MOUNTED_VOLUME}tmp.csv')
-        split_file(f'{MOUNTED_VOLUME}scanr_authors', f'{gobal_file_authors}', 100000, 'authors-split_', f'{MOUNTED_VOLUME}scanr_authors/split', '.csv') 
-        input_dict = get_vip()
+        df = pd.read_csv(gobal_file_authors, header=None, names=['idref'])
+        idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
+        # adding idrefs from vip
+        idrefs.update(input_dict.keys())
+        logger.debug(f'{len(idrefs)} idrefs after vip')
+        gobal_file_authors_complete = f'{MOUNTED_VOLUME}scanr_authors/output_idrefs_complete.csv'
+        pd.DataFrame(idrefs).to_csv(gobal_file_authors_complete, index=False, header=None)
+        split_file(f'{MOUNTED_VOLUME}scanr_authors', f'{gobal_file_authors_complete}', 100000, 'authors-split_', f'{MOUNTED_VOLUME}scanr_authors/split', '.csv') 
     author_ix = args.get('author_ix')
     if author_ix is None:
         return
@@ -182,21 +189,13 @@ def export_scanr2(args):
     if author_ix == 0:
         reset_index_scanr(index=index_name)
     if args.get('reload_index_only', False) is False:
+        input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
         assert(isinstance(author_ix, int))
         df = pd.read_csv(f'{MOUNTED_VOLUME}/scanr_authors/split/authors-split_{author_ix}.csv', header=None, names=['idref'])
         idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
         nbTotalIdrefs = len(idrefs)
         logger.debug(f'{len(idrefs)} idrefs')
-        #download_object('misc', 'vip.jsonl', f'{MOUNTED_VOLUME}vip.jsonl')
-        #input_idrefs = pd.read_json(f'{MOUNTED_VOLUME}vip.jsonl', lines=True).to_dict(orient='records')
-        input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
-        #for e in input_idrefs:
-        #    input_dict[e['id'].replace('idref','')] = e
-        # add extra idref 
-        idrefs.update(input_dict.keys())
-        logger.debug(f'{len(idrefs)} idrefs after vip')
         ix = 0
-
         myclient = pymongo.MongoClient('mongodb://mongo:27017/')
         mydb = myclient['scanr']
         collection_name = 'publi_meta'
@@ -209,7 +208,7 @@ def export_scanr2(args):
 
         #manual_matches = get_manual_matches()
 
-        idref_chunks = chunks(list(idrefs), 50)
+        idref_chunks = chunks(list(idrefs), 100)
         for idref_chunk in idref_chunks:
             publications_for_this_chunk = get_publications_for_idrefs([f'idref{g}' for g in idref_chunk])
             publications_dict = {}
