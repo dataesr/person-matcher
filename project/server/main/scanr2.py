@@ -19,6 +19,7 @@ import pymongo
 import pandas as pd
 from retry import retry
 from urllib import parse
+import time
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
@@ -188,6 +189,8 @@ def export_scanr2(args):
 
     if author_ix == 0:
         reset_index_scanr(index=index_name)
+    else:
+        time.sleep(10)
     if args.get('reload_index_only', False) is False:
         input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
         assert(isinstance(author_ix, int))
@@ -252,7 +255,7 @@ def export_scanr2(args):
         os.system(f'cd {MOUNTED_VOLUME}scanr_authors/split && rm -rf persons_denormalized_{author_ix}.jsonl.gz && gzip -k persons_denormalized_{author_ix}.jsonl')
         upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr_authors/split/persons_denormalized_{author_ix}.jsonl.gz', destination=f'production/persons_denormalized_{author_ix}.jsonl.gz')
     
-    load_scanr_persons('/upw_data/scanr_authors/split/persons_denormalized_{author_ix}.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
+    load_scanr_persons(f'/upw_data/scanr_authors/split/persons_denormalized_{author_ix}.jsonl', 'scanr-persons-'+index_name.split('-')[-1])
 
 
 def post_treatment_persons(args):
