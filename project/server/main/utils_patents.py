@@ -25,6 +25,11 @@ def patents_get_co_occurences(my_list, my_field):
         return res
     return None
 
+def patents_applicants_persons_as_organisations(applicants):
+    for applicant in applicants:
+        if applicant.get("type") == "person" and any(id.get("type") == "siren" for id in applicant.get("ids", [])):
+            applicant["type"] = "organisation"
+    return applicants
 
 def patents_applicants_add_idnames(applicants):
     for applicant in applicants:
