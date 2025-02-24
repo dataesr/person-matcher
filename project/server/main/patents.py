@@ -8,6 +8,7 @@ from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, 
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
 from project.server.main.utils_patents import (
+    patents_applicants_persons_as_organisations,
     patents_applicants_add_idnames,
     patents_cpc_add_idnames,
     patents_get_co_occurences,
@@ -76,6 +77,14 @@ def load_patents(args):
             for f in ['id', 'inpadocFamily']:
                 if p.get(f):
                     p[f] = str(p[f])
+                    
+            # default title
+            if p.get("title") and not p["title"].get("default"):
+                p["title"]["default"] = p["title"].get("en") or p["title"].get("fr")
+            
+            # fix organizations
+            if p.get("applicants"):
+                p["applicants"] = patents_applicants_persons_as_organisations(p["applicants"])
 
             # id_names
             if p.get("applicants"):
