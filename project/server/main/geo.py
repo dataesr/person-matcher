@@ -19,10 +19,11 @@ from urllib import parse
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
+DATAESR_URL = os.getenv('DATAESR_URL')
 
 def load_geo(args):
     index_name = args.get('index_name')
-    r = requests.get('http://185.161.45.213/organizations/_distinct/scanr/address.localisationSuggestions', headers={'Authorization': f"Basic {os.getenv('DATAESR_HEADER')}"}).json()
+    r = requests.get(f'{DATAESR_URL}/organizations/_distinct/scanr/address.localisationSuggestions', headers={'Authorization': f"Basic {os.getenv('DATAESR_HEADER')}"}).json()
     data = [ {'autocompleted': [loc]} for loc in r['values']]
     geo_file = '/upw_data/scanr/localisations.jsonl'
     os.system(f'rm -rf {geo_file}')
@@ -39,7 +40,7 @@ def load_geo(args):
 
 def load_country(args):
     index_name = args.get('index_name')
-    r = requests.get('http://185.161.45.213/organizations/_distinct/scanr/address.country', headers={'Authorization': f"Basic {os.getenv('DATAESR_HEADER')}"}).json()
+    r = requests.get(f'{DATAESR_URL}/organizations/_distinct/scanr/address.country', headers={'Authorization': f"Basic {os.getenv('DATAESR_HEADER')}"}).json()
     data = [ {'autocompleted': [loc]} for loc in r['values']]
     geo_file = '/upw_data/scanr/countries.jsonl'
     os.system(f'rm -rf {geo_file}')

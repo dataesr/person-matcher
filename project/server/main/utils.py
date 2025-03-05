@@ -2,10 +2,23 @@ import json
 import pandas as pd
 import itertools
 from project.server.main.logger import get_logger
+import pymongo
 
 NB_MAX_CO_ELEMENTS = 20
 
 logger = get_logger(__name__)
+
+def save_to_mongo_publi_indexes():
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    collection_name = 'publi_meta'
+    logger.debug('indices on publi_meta')
+    mycol = mydb[collection_name]
+    mycol.create_index('id')
+    mycol.create_index('authors.person')
+    mycol.create_index('affiliations')
+    mycol.create_index('projects')
+    myclient.close()
 
 def get_co_occurences(my_list, my_field):
     elts_to_combine = [a for a in my_list if a.get(my_field)]

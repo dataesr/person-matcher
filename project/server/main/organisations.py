@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed
+from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
 from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
@@ -99,8 +99,12 @@ def load_orga(args):
 
     get_zip_from_crawler = args.get('get_zip_from_crawler', True)
     if args.get('export_from_source', False):
+        logger.debug('launch task on 185 export_scanr_to_mongo and sleep for 2 hours')
+        r = requests.post(f"{DATAESR_URL}/organizations/tasks", json = {"task_name": "export_scanr_to_mongo"}, headers={"Authorization": f"Basic {DATAESR_HEADER}"})
+        time.sleep(3600 * 2) # la tache précédente prend du temps
         dump_from_http('organizations')
     if args.get('reload_index_only', False) is False:
+        save_to_mongo_publi_indexes()
         df_orga = get_orga_data()
         orga = orga_with_ed()
         reverse_relation = compute_reverse_relations(orga)

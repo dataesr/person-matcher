@@ -13,8 +13,10 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 from project.server.main.utils import chunks, to_jsonl, to_json
-
+from project.server.main.paysage import get_paysage_data, get_status_from_siren
 from project.server.main.s3 import upload_object
+
+DATESR_URL = os.getenv('DATAESR_URL')
 
 def requests_retry_session(
     retries=3,
@@ -43,8 +45,9 @@ def get_with_retry(url):
     return requests_retry_session(session=s).get(url)
     
 def dump_from_http(db):
+    df_paysage_struct, df_siren, df_ror = get_paysage_data()
     collection = 'scanr'
-    url_base = "http://185.161.45.213/{0}/{1}".format(db, collection)
+    url_base = f"{DATAESR_URL}/{db}/{collection}"
     nb_res = get_with_retry(url_base).json()['meta']['total']
     nb_pages = math.ceil(nb_res/500)
     print(nb_res, nb_pages)
@@ -63,6 +66,15 @@ def dump_from_http(db):
         for field in ['_id', 'etag', 'created_at', 'modified_at']:
             if field in elem:
                 del elem[field]
+        sirene = None
+        for ext in elem.get('externalIds', []):
+            if ext.get('type') == 'sirene':
+                siren = ext['id']
+                break
+        if siren:
+            paysage_info_info = get_status_from_siren(siren)
+            elem.update(paysage_info)
+            logger.debug(f'updating siren {siren} with paysage info {paysage_info}')
         current_list2.append(elem)
     os.system(f'rm -rf /upw_data/scanr/{db}.jsonl')
     to_jsonl(current_list2, f'/upw_data/scanr/{db}.jsonl')

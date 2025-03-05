@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences
+from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
@@ -47,6 +47,7 @@ def load_projects(args):
     if args.get('export_from_source', True):
         dump_from_http('projects')
     if args.get('reload_index_only', False) is False:
+        save_to_mongo_publi_indexes()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
         phc_duplicates = get_phc_duplicates(df)
         projects = [p for p in df.to_dict(orient='records') if p['id'] not in phc_duplicates]

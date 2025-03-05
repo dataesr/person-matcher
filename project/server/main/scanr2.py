@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, get_all_manual_matches
+from project.server.main.utils import chunks, to_jsonl, to_json, get_all_manual_matches, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_data
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
@@ -192,6 +192,7 @@ def export_scanr2(args):
     else:
         time.sleep(10)
     if args.get('reload_index_only', False) is False:
+        save_to_mongo_publi_indexes()
         input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
         assert(isinstance(author_ix, int))
         df = pd.read_csv(f'{MOUNTED_VOLUME}/scanr_authors/split/authors-split_{author_ix}.csv', header=None, names=['idref'])

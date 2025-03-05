@@ -46,27 +46,25 @@ def get_awards():
                 'summary': row.resume,
                 'domain': {'id': row.domainetechnoid , 'label': row.domaine_technologique}
             })
-
-
     df_prix = get_ods_data('fr_esr_paysage_laureats_all')
     for row in df_prix[df_prix.laureat_type=='Structure'].itertuples():
-        current_id = None
+        current_ids = []
         if row.laureat_identifiant_rnsr==row.laureat_identifiant_rnsr:
-            current_id = row.laureat_identifiant_rnsr
+            current_ids = str(row.laureat_identifiant_rnsr).split(';')
         if row.laureat_identifiant_siret == row.laureat_identifiant_siret:
-            current_id = str(int(row.laureat_identifiant_siret))[0:9]
-        if current_id not in awards_dict:
-               awards_dict[current_id] = []
+            current_ids = [c[0:9] for c in str(row.laureat_identifiant_siret).split(';')]
+            #current_id = str(int(row.laureat_identifiant_siret))[0:9]
         year = None
         try:
             year = int(str(row.prix_annee)[0:4])
         except:
             logger.debug(f'prix_annee parsing failed for {row.prix_annee}')
-        awards_dict[current_id].append({
-            'label': row.prix_libelle,
-            'year': year
-        })
-
-
+        for current_id in current_ids:
+            if current_id not in awards_dict:
+               awards_dict[current_id] = []
+            awards_dict[current_id].append({
+                'label': row.prix_libelle,
+                'year': year
+            })
     return awards_dict
 
