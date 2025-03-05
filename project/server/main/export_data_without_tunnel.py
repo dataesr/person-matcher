@@ -15,8 +15,11 @@ from requests.packages.urllib3.util.retry import Retry
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.paysage import get_paysage_data, get_status_from_siren
 from project.server.main.s3 import upload_object
+from project.server.main.logger import get_logger
 
-DATESR_URL = os.getenv('DATAESR_URL')
+logger = get_logger(__name__)
+
+DATAESR_URL = os.getenv('DATAESR_URL')
 
 def requests_retry_session(
     retries=3,
@@ -66,15 +69,16 @@ def dump_from_http(db):
         for field in ['_id', 'etag', 'created_at', 'modified_at']:
             if field in elem:
                 del elem[field]
-        sirene = None
+        siren = None
         for ext in elem.get('externalIds', []):
             if ext.get('type') == 'sirene':
                 siren = ext['id']
                 break
         if siren:
-            paysage_info_info = get_status_from_siren(siren)
-            elem.update(paysage_info)
-            logger.debug(f'updating siren {siren} with paysage info {paysage_info}')
+            paysage_info = get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror)
+            if paysage_info and paysage_info.get('status') != elem.get('status'):
+                elem.update(paysage_info)
+                logger.debug(f'updating siren {siren} with paysage info {paysage_info}')
         current_list2.append(elem)
     os.system(f'rm -rf /upw_data/scanr/{db}.jsonl')
     to_jsonl(current_list2, f'/upw_data/scanr/{db}.jsonl')

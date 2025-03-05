@@ -31,7 +31,7 @@ def get_status_from_paysage(paysage_id, df_paysage_struct):
     elif status == 'active':
         ans['status'] = 'active'
     closuredate = records[0].get('closuredate')
-    if closuredate and status=='old':
+    if closuredate and closuredate==closuredate and status=='inactive':
         ans['endDate'] = closuredate+'T00:00:00'
     return ans
 
