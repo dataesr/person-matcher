@@ -22,9 +22,12 @@ from retry import retry
 from dateutil import parser
 from urllib import parse
 import zipfile, io
+import time
 
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
+DATAESR_URL = os.getenv('DATAESR_URL')
+DATAESR_HEADER = os.getenv('DATAESR_HEADER')
 
 def make_clean_html(html):
     soup = BeautifulSoup(html, 'lxml')
