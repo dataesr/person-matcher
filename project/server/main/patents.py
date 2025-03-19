@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_correspondance 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
@@ -28,7 +28,7 @@ from urllib import parse
 logger = get_logger(__name__)
 MOUNTED_VOLUME = '/upw_data/'
 
-def get_structures_from_patent(p):
+def get_structures_from_patent(p, correspondance):
     structures = []
     applicants, inventors = [], []
     if isinstance(p.get('applicants'), list):
@@ -41,16 +41,19 @@ def get_structures_from_patent(p):
                 current_id = f['id']
                 if current_id not in structures:
                     structures.append(current_id)
+                    if current_id in correspondance:
+                        structures += [k['id'] for k in correspondance[current_id]]
     return list(set(structures))
 
 def get_patents_orga_dict():
     download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
     patents_orga_dict = {}
+    correspondance = get_correspondance()
     for c in df:
         patents = c.to_dict(orient='records')
         for p in patents:
-            struct = get_structures_from_patent(p)    
+            struct = get_structures_from_patent(p, correspondance)    
             for aff_id in struct:
                 if aff_id not in patents_orga_dict:
                     patents_orga_dict[aff_id] = []
@@ -68,6 +71,7 @@ def load_patents(args):
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
     df_orga = get_orga_data()
     os.system('rm -rf /upw_data/scanr/patents_denormalized.jsonl')
+    correspondance = get_correspondance()
 
     for c in df:
         patents = c.to_dict(orient='records')
@@ -117,7 +121,7 @@ def load_patents(args):
                 p["co_cpc_ss_classe"] = co_cpc_ss_classe
 
             new_affiliations = []
-            for aff_id in get_structures_from_patent(p):
+            for aff_id in get_structures_from_patent(p, correspondance):
                 denormalized_organization = get_orga(df_orga, aff_id)
                 new_affiliations.append(denormalized_organization)
             p['denormalized_structures'] = new_affiliations
