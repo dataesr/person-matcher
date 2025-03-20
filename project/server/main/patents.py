@@ -87,12 +87,25 @@ def load_patents(args):
                 p["title"]["default"] = p["title"].get("en") or p["title"].get("fr")
             
             # fix organizations
+            # adding missing ids from correspondance
             if p.get("applicants"):
+                for ix, app in enumerate(p['applicants']):
+                    current_ids = app.get('ids', [])
+                    new_ids = []
+                    for current_id in current_ids:
+                        if current_id['id'] in correspondance:
+                            for elt in correspondance[current_id['id']]:
+                                new_elt = {'id': elt['id'], 'type': elt['type']}
+                                new_ids.append(new_elt)
+                    for new_id in new_ids:
+                        if new_id not in current_ids:
+                            p['applicants'][ix]['ids'].append(new_id)
+                # removing some persons
                 p["applicants"] = patents_applicants_persons_as_organisations(p["applicants"])
 
             # id_names
             if p.get("applicants"):
-                p["applicants"] = patents_applicants_add_idnames(p["applicants"])
+                p["applicants"] = patents_applicants_add_idnames(p["applicants"], correspondance)
             if p.get("cpc"):
                 for group in ["section", "classe", "ss_classe"]:
                     if p["cpc"].get(group):

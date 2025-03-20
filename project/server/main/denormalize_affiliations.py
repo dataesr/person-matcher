@@ -17,17 +17,18 @@ def get_correspondance():
         current_id = None
         externalIdsToKeep = [e for e in r.get('externalIds', []) if e['type'] in ['rnsr',  'ror', 'grid', 'bce', 'sirene', 'siren', 'siret'] ]
         for e in externalIdsToKeep:
+            e['main_id'] = r['id']
             current_id = e['id']
             if current_id not in correspondance:
                 correspondance[current_id] = []
         if current_id is None:
             continue
 
-        correspondance[current_id] += [k for k in externalIdsToKeep if k['id'] != current_id]
+        correspondance[current_id] += [k for k in externalIdsToKeep]
         for e in r.get('externalIds', []):
             if e['type'] in ['siren', 'siret', 'sirene', 'bce']:
                 new_id = e['id']
-                correspondance[new_id] += [k for k in externalIdsToKeep if k['id'] != new_id]
+                correspondance[new_id] += [k for k in externalIdsToKeep]
 
         for e in r.get('institutions'):
             if e.get('structure'):
@@ -37,6 +38,13 @@ def get_correspondance():
                         correspondance[current_id].append(elt)
     logger.debug(f'{len(correspondance)} ids loaded with equivalent ids')
     return correspondance
+
+def get_main_id(current_id, correspondance):
+    if current_id in correspondance:
+        for c in correspondance[current_id]:
+            if c.get('main_id'):
+                return c['main_id']
+    return None
 
 def get_main_address(address):
     main_add = None

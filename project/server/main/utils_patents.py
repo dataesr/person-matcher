@@ -1,4 +1,5 @@
 from itertools import combinations
+from project.server.main.denormalize_affiliations import get_main_id
 
 NB_MAX_CO_ELEMENTS = 20
 
@@ -31,7 +32,7 @@ def patents_applicants_persons_as_organisations(applicants):
             applicant["type"] = "organisation"
     return applicants
 
-def patents_applicants_add_idnames(applicants):
+def patents_applicants_add_idnames(applicants, correspondance):
     for applicant in applicants:
         name = applicant.get("name")
         if not name:
@@ -41,9 +42,13 @@ def patents_applicants_add_idnames(applicants):
 
         id = name.lower()
         for current_id in applicant.get("ids", []):
-            if current_id.get("type") == "siren":
-                id = current_id.get("id")
+            main_id = get_main_id(current_id.get("id"), correspondance)
+            if main_id:
+                id = main_id
                 break
+            #if current_id.get("type") == "siren":
+            #    id = current_id.get("id")
+            #    break
 
         id_name = f"{id}###{name}###{country}"
         applicant.update({"id_name": id_name})
