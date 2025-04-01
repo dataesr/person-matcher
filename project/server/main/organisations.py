@@ -75,7 +75,10 @@ def compute_reverse_relations(data):
                             reverse_relation[f][reversed_elt_id] = []
                         new_reverse = reversed_elt.copy()
                         new_reverse['structure'] = current_id
-                        reverse_relation[f][reversed_elt_id].append(new_reverse)
+                        new_reverse['natural_id'] = f"{current_id};{new_reverse.get('relationType')};{new_reverse.get('fromDate')}"
+                        already_there = [k['natural_id'] for k in reverse_relation[f][reversed_elt_id]]
+                        if new_reverse['natural_id'] not in already_there:
+                            reverse_relation[f][reversed_elt_id].append(new_reverse)
     return reverse_relation
 
 def get_ai_desc(current_id, df_ai_description):
