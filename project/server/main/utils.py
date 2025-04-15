@@ -31,6 +31,23 @@ def get_co_occurences(my_list, my_field):
         return res
     return None
 
+def remove_duplicates(x, main_id):
+    natural_id_fields = ['structure', 'relationType', 'fromDate', 'person', 'role', 'firstName', 'lastName']
+    res = []
+    already_there = set()
+    for e in x:
+        natural_id_elts = []
+        for f in natural_id_fields:
+            natural_id_elts.append(e.get(f, ''))
+        natural_id = ';;;'.join(natural_id_elts)
+        e['natural_id'] = natural_id
+        if natural_id not in already_there:
+            res.append(e)
+            already_there.add(natural_id)
+        else:
+            logger.debug(f"removing duplicate in {main_id} : {natural_id}")
+    return res 
+        
 def orga_with_ed():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
     df = pd.read_json(url, lines=True)
@@ -51,6 +68,9 @@ def orga_with_ed():
                                       {'id': 'idref'+r.idref, 'type': 'idref'}]}
     updated = set()
     for org in orga:
+        for f in ['institutions', 'parents', 'leaders']:
+            if org.get(f):
+                org[f] = remove_duplicates(org[f], org['id'])
         if org['id'] in ed_map:
             org.update(ed_map[org['id']])
             updated.add(org['id'])
