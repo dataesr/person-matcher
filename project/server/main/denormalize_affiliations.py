@@ -90,7 +90,7 @@ def get_orga_data():
     for elt in data:
         res = {}
         #for e in ['id', 'kind', 'label', 'acronym', 'nature', 'status', 'isFrench', 'address']:
-        for e in ['id', 'kind', 'label', 'acronym', 'status']:
+        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']:
             if elt.get(e):
                 res[e] = elt[e]
             if isinstance(elt.get('address'), list):
