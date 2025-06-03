@@ -58,7 +58,7 @@ def get_analyzers() -> dict:
                 'lowercase',
                 'french_elision',
                 'icu_folding',
-                'french_stemmer'
+                'stemmer'
             ]
         },
         "autocomplete": {
@@ -117,7 +117,7 @@ def reset_index_scanr(index: str) -> None:
             }
 
 
-    for f in ['label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
+    for f in ['title_abs_text', 'label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'heavy',

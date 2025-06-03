@@ -139,6 +139,14 @@ def load_patents(args):
                 new_affiliations.append(denormalized_organization)
             p['denormalized_structures'] = new_affiliations
 
+            title_abs_text = ''
+            for field in ['title', 'summary']:
+                if isinstance(p.get(field), str):
+                    for lang in ['fr', 'en']:
+                        if isinstance(p[field].get(lang), str):
+                            title_abs_text += p[field][lang]+' '
+            p['title_abs_text'] = title_abs_text
+
         to_jsonl(patents, '/upw_data/scanr/patents_denormalized.jsonl') 
 
     load_scanr_patents('/upw_data/scanr/patents_denormalized.jsonl', index_name) 

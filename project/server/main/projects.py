@@ -96,6 +96,14 @@ def load_projects(args):
             text_to_autocomplete = list(set(text_to_autocomplete))
             projects[ix]['autocompleted'] = text_to_autocomplete
             projects[ix]['autocompletedText'] = text_to_autocomplete
+            
+            title_abs_text = ''
+            for field in ['label', 'description', 'keywords']:
+                if isinstance(projects[ix].get(field), str):
+                    for lang in ['fr', 'en']:
+                        if isinstance(projects[ix][field].get(lang), str):
+                            title_abs_text += projects[ix][field][lang]+' '
+            projects[ix]['title_abs_text'] = title_abs_text
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
