@@ -81,7 +81,8 @@ def load_patents(args):
             for f in ['id', 'inpadocFamily']:
                 if p.get(f):
                     p[f] = str(p[f])
-                    
+            if p['id'] in ['58775843', '55542820', '56068961', '77021482', '46634330']:
+                continue
             # default title
             if p.get("title") and not p["title"].get("default"):
                 p["title"]["default"] = p["title"].get("en") or p["title"].get("fr")
@@ -141,7 +142,7 @@ def load_patents(args):
 
             title_abs_text = ''
             for field in ['title', 'summary']:
-                if isinstance(p.get(field), str):
+                if isinstance(p.get(field), dict):
                     for lang in ['fr', 'en']:
                         if isinstance(p[field].get(lang), str):
                             title_abs_text += p[field][lang]+' '

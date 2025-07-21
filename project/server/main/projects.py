@@ -99,7 +99,7 @@ def load_projects(args):
             
             title_abs_text = ''
             for field in ['label', 'description', 'keywords']:
-                if isinstance(projects[ix].get(field), str):
+                if isinstance(projects[ix].get(field), dict):
                     for lang in ['fr', 'en']:
                         if isinstance(projects[ix][field].get(lang), str):
                             title_abs_text += projects[ix][field][lang]+' '

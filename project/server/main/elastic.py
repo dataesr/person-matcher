@@ -117,7 +117,7 @@ def reset_index_scanr(index: str) -> None:
             }
 
 
-    for f in ['title_abs_text', 'label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
+    for f in ['label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'heavy',
@@ -147,7 +147,7 @@ def reset_index_scanr(index: str) -> None:
                 'analyzer': 'light',
             }
     
-    for f in ['web_content']: 
+    for f in ['web_content', 'title_abs_text']: 
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'heavy',
