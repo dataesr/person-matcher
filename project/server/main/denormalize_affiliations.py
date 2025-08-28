@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed
+from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 def get_correspondance():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
     df = pd.read_json(url, lines=True)
+    df = df[~df.id.isin(EXCLUDED_ID)]
     #df = df.set_index('id')
     data = df.to_dict(orient='records')
     correspondance = {}
