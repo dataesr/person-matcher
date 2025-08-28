@@ -7,6 +7,8 @@ import pymongo
 NB_MAX_CO_ELEMENTS = 20
 
 logger = get_logger(__name__)
+    
+EXCLUDED_ID = ['881000251']
 
 def save_to_mongo_publi_indexes():
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -51,6 +53,7 @@ def remove_duplicates(x, main_id):
 def orga_with_ed():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
     df = pd.read_json(url, lines=True)
+    df = df[~df.id.isin(EXCLUDED_ID)]
     orga = df.to_dict(orient='records')
     df_ed = pd.read_csv('./ed_idref.tsv', sep='\t')
     df_ed.columns = ['ed', 'idref', 'label', 'paysage']
