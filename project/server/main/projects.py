@@ -54,6 +54,16 @@ def load_projects(args):
         df_orga = get_orga_data()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         for ix, p in enumerate(projects):
+            # rename with priorities, domains will be used later down
+            p['priorities'] = p['domains']
+            # split keywords
+            if isinstance(p['keywords'], dict):
+                for lang in p['keywords']:
+                    if isinstance(p['keywords'][lang], list):
+                        new_keywords = []
+                        for k in p['keywords'][lang]:
+                            new_keywords += [w.strip() for w in re.split(r'[,;]', k)]
+                        p['keywords'][lang] = new_keywords
             denormalized_affiliations = []
             for part in p.get('participants'):
                 part_id = part.get('structure')

@@ -100,12 +100,12 @@ def run_task_match_all():
             nb_keys += len(chunk)
             logger.debug(f'{nb_keys} keys sent')
 
-    response_object = {
-        "status": "success",
-        "data": {
-            "task_id": task.get_id()
+        response_object = {
+            "status": "success",
+            "data": {
+                "task_id": task.get_id()
+            }
         }
-    }
     return jsonify(response_object), 202
 
 
