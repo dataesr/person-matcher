@@ -44,7 +44,8 @@ def get_awards():
                 'label': 'Lauréats I-LAB',
                 'year': int(row.annee_de_concours),
                 'summary': row.resume,
-                'domain': {'id': row.domainetechnoid , 'label': row.domaine_technologique}
+                #'domain': {'id': row.domainetechnoid , 'label': row.domaine_technologique}
+                'domain': {'label': row.domaine_technologique}
             })
     df_prix = get_ods_data('fr_esr_paysage_laureats_all')
     for row in df_prix[df_prix.laureat_type=='Structure'].itertuples():

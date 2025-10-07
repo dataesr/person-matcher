@@ -60,7 +60,7 @@ def orga_with_ed():
     df_ed['ed'] = df_ed['ed'].apply(lambda x:'ED'+str(x))
     ed_map = {}
     for r in df_ed.itertuples():
-        ed_map[r.ed]={'id': r.ed, 'endDate': None, 'status': 'valid', 
+        ed_map[r.ed]={'id': r.ed, 'endDate': None, 'status': 'active', 
                       'label':{'fr': r.label, 'default': r.label},
                       'kind': ['Secteur public'],
                       'level': 'École doctorale',

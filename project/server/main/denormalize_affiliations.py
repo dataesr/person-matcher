@@ -97,6 +97,9 @@ def get_orga_data():
             if isinstance(elt.get('address'), list):
                 res['mainAddress'] = get_main_address(elt['address'])
         res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
+        if res.get('status') == 'valid':
+            res['status'] = 'active'
+        assert(res.get('status') in ['active', 'old'])
         if 'label' in res:
             fr_label = get_name_by_lang(res['label'], 'fr')
             en_label = get_name_by_lang(res['label'], 'en')
