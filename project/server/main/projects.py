@@ -46,7 +46,7 @@ def get_phc_duplicates(df):
 def load_projects(args):
     index_name = args.get('index_name')
     if args.get('export_from_source', True):
-        dump_from_http('projects')
+        dump_from_http('projects', 50)
     if args.get('reload_index_only', False) is False:
         save_to_mongo_publi_indexes()
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
@@ -67,11 +67,22 @@ def load_projects(args):
                         p['keywords'][lang] = new_keywords
             denormalized_affiliations = []
             for part in p.get('participants'):
+                is_identified=False
+                participant_label = part.get('label', {})
+                participant_name = participant_label.get('default')
                 part_id = part.get('structure')
                 if part_id:
+                    is_identified=True
                     denormalized_organization = get_orga(df_orga, part_id)
                     part['structure'] = denormalized_organization
                     denormalized_affiliations.append(denormalized_organization)
+                participant_key = f'{participant_name}---{is_identified}'
+                if is_identified:
+                    participant_to_identify = 'identified'
+                else: 
+                    participant_to_identify = participant_name
+                part['participant_key'] = participant_key
+                part['participant_to_identify'] = participant_to_identify
             co_countries = get_co_occurences(denormalized_affiliations, 'country')
             if co_countries:
                 projects[ix]['co_countries'] = co_countries

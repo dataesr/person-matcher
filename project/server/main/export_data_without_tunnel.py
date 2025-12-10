@@ -47,19 +47,22 @@ def get_with_retry(url):
     s.headers.update(header)
     return requests_retry_session(session=s).get(url)
     
-def dump_from_http(db):
+def dump_from_http(db, nb_per_page = 500):
     df_paysage_struct, df_siren, df_ror = get_paysage_data()
     collection = 'scanr'
     url_base = f"{DATAESR_URL}/{db}/{collection}"
     nb_res = get_with_retry(url_base).json()['meta']['total']
-    nb_pages = math.ceil(nb_res/500)
+    nb_pages = math.ceil(nb_res/nb_per_page)
     print(nb_res, nb_pages)
     current_list = []
     for p in range(1, nb_pages + 1):
         print(p, end=',')
-        url = url_base+"?max_results=500&page="+str(p)
-        r = get_with_retry(url)
-        current_list += r.json()['data']
+        url = url_base+f"?max_results={nb_per_page}&page="+str(p)
+        try:
+            r = get_with_retry(url)
+            current_list += r.json()['data']
+        except:
+            logger.debug(f'error with {url}, skip that page')
     current_list2=[]
     for elem in current_list:
         if 'id' in elem:
