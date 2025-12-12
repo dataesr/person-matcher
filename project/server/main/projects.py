@@ -10,6 +10,7 @@ from project.server.main.scanr2 import get_publications_for_project, get_domains
 from project.server.main.export_data_without_tunnel import dump_from_http
 
 import pysftp
+import pickle
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -27,6 +28,9 @@ MOUNTED_VOLUME = '/upw_data/'
 person_id_key = 'person'
 
 # sed -e 's/\"prizes\": \[\(.*\)\}\], \"f/f/' persons2.json > persons.json &
+
+PARTICIPANTS_CODED = pickle.load(open('/src/project/server/main/participants_coded.pkl', 'rb'))
+logger.debug(f'{len(PARTICIPANTS_CODED)} participants coded loaded')
 
 def get_phc_duplicates(df):
     df_phc = df[df.type=='Partenariat Hubert Curien']
@@ -69,8 +73,18 @@ def load_projects(args):
             for part in p.get('participants'):
                 is_identified=False
                 participant_label = part.get('label', {})
-                participant_name = participant_label.get('default')
+                participant_name = 'participant'
+                if isinstance(participant_label.get('default'), str):
+                    participant_name = participant_label['default'].split('__-__')[0]
                 part_id = part.get('structure')
+                if participant_name.lower() in PARTICIPANTS_CODED:
+                    for coded_id in ['rnsr', 'siret', 'siren', 'grid']:
+                        if PARTICIPANTS_CODED[participant_name.lower()].get(coded_id):
+                            part_id = PARTICIPANTS_CODED[participant_name.lower()].get(coded_id)
+                            denormalized_organization = get_orga(df_orga, part_id)
+                            if 'label' in denormalized_organization:
+                                logger.debug(f'got {part_id} from hand coded table for {participant_name}')
+                                break
                 if part_id:
                     is_identified=True
                     denormalized_organization = get_orga(df_orga, part_id)
