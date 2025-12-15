@@ -56,8 +56,10 @@ def load_projects(args):
         df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
         phc_duplicates = get_phc_duplicates(df)
         projects = [p for p in df.to_dict(orient='records') if p['id'] not in phc_duplicates]
+        participations = []
         df_orga = get_orga_data()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
+        projects = [p for p in projects if p.get('type') not in ['Casdar']]
         for ix, p in enumerate(projects):
             # rename with priorities, domains will be used later down
             p['priorities'] = p['domains']
@@ -114,9 +116,10 @@ def load_projects(args):
                     if isinstance(p.get(k), dict):
                         if isinstance(p[k].get(lang), str):
                             text_to_autocomplete.append(p[k][lang])
-            publications_data = get_publications_for_project(p['id'])
+            publications_data = {}
+            #publications_data = get_publications_for_project(p['id'])
             publis_to_expose = []
-            for pub in publications_data['publications']:
+            for pub in publications_data.get('publications', []):
                 simple_publi = {}
                 for f in ['id', 'projects', 'title', 'affiliations']:
                     if pub.get(f):
@@ -124,8 +127,8 @@ def load_projects(args):
                 if simple_publi:
                     publis_to_expose.append(simple_publi)
             projects[ix]['publications'] = publis_to_expose
-            projects[ix]['publicationsCount'] = publications_data['count']
-            domains_infos = get_domains_from_publications(publications_data['publications'])
+            projects[ix]['publicationsCount'] = publications_data.get('count', 0)
+            domains_infos = get_domains_from_publications(publications_data.get('publications', []))
             projects[ix].update(domains_infos)
             logger.debug(f"{projects[ix]['publicationsCount']} publications retrieved for project {p['id']}")
             text_to_autocomplete.append(p['id'])
@@ -140,10 +143,67 @@ def load_projects(args):
                         if isinstance(projects[ix][field].get(lang), str):
                             title_abs_text += projects[ix][field][lang]+' '
             projects[ix]['title_abs_text'] = title_abs_text
+            formatted_participations = get_participations(projects[ix], df_orga)
+            if formatted_participations:
+                participations += formatted_participations 
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
+        to_jsonl(participations, '/upw_data/scanr/participations_denormalized.jsonl') 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name) 
+    os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf participations_denormalized.jsonl.gz && gzip -k participations_denormalized.jsonl')
+    upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
+    load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation')) 
+
+
+def get_participations(project, df_orga):
+    participations = []
+    if isinstance(project.get('participants', []), list):
+        for p in project['participants']:
+            if 'structure' in p:
+                new_part = {}
+                # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
+                for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding']:
+                    if f in p['structure']:
+                        new_part[f'participant_{f}'] = p['structure'][f]
+                if new_part and new_part.get('participant_id'):
+                    participations.append(new_part)
+                if isinstance(p['structure'].get('institutions'), list):
+                    for inst in p['structure'].get('institutions'):
+                        if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
+                            new_part = {}
+                            current_part = get_orga(df_orga, inst['structure'])
+                            for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench']:
+                                if f in current_part:
+                                    new_part[f'participant_{f}'] = current_part[f]
+                            if new_part and new_part.get('participant_id'):
+                                participations.append(new_part)
+    for part in participations:
+        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced']:
+            if f in project:
+                part[f'project_{f}']=project[f]
+        for f in ['partiticpant_institutions']:
+            if f in part:
+                del part[f]
+        part['participant_type'] = 'other'
+        if 'participant_kind' in part:
+            if 'Structure de recherche' in part['participant_kind']:
+                part['participant_type'] = 'laboratory'
+            else:
+                part['participant_type'] = 'institution'
+        if part.get('participant_isFrench'):
+            pass
+        else:
+            part['participant_isFrench'] = False
+    for part in participations:
+        part['co_partners_fr_labs'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]
+        part['co_partners_fr_inst'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]
+        part['co_partners_foreign_inst'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_id_name')]
+        try:
+            part['participant_isFrench']
+        except:
+            logger.debug(part)
+    return participations
 
 def load_scanr_projects(scanr_output_file_denormalized, index_name):
     denormalized_file=scanr_output_file_denormalized
