@@ -124,6 +124,7 @@ def get_orga(orga_map, orga_id):
 def get_projects_data():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
     df = pd.read_json(url, lines=True)
+    df = df[df.type!='Casdar']
     data = df.to_dict(orient='records')
     proj_map = {}
     for elt in data:
@@ -137,6 +138,7 @@ def get_projects_data():
 def get_link_orga_projects():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
     df = pd.read_json(url, lines=True)
+    df = df[df.type!='Casdar']
     data = df.to_dict(orient='records')
     proj_map = {}
     for elt in data:
