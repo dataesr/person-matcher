@@ -1,6 +1,9 @@
 import requests
 import os
 from project.server.main.ods import get_ods_data
+from project.server.main.logger import get_logger
+
+logger = get_logger(__name__)
 
 def get_paysage_data():
     df_paysage_id = get_ods_data('fr-esr-paysage_structures_identifiants')

@@ -87,3 +87,36 @@ def dump_from_http(db, nb_per_page = 500):
     to_jsonl(current_list2, f'/upw_data/scanr/{db}.jsonl')
     os.system(f'cd /upw_data/scanr && rm -rf {db}.jsonl.gz && gzip -k {db}.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/{db}.jsonl.gz', destination=f'production/{db}.jsonl.gz')
+
+
+def dump_rnsr_data(nb_per_page=500):
+    db = 'organizations'
+    collection = 'scanr'
+    url_base = f'{DATAESR_URL}/{db}/{collection}?where=' + '{"externalIds.type":"rnsr"}'
+    nb_res = get_with_retry(url_base).json()['meta']['total']
+    nb_pages = math.ceil(nb_res/nb_per_page)
+    logger.debug(f'getting RNSR data {nb_res} elts over {nb_pages} pages')
+    current_list = []
+    for p in range(1, nb_pages + 1):
+        print(p, end=',')
+        url = url_base+f"&max_results={nb_per_page}&page="+str(p)
+        try:
+            r = get_with_retry(url)
+            current_list += r.json()['data']
+        except:
+            logger.debug(f'error with {url}, skip that page')
+    current_list2=[]
+    for elem in current_list:
+        if 'id' in elem:
+            elem['id'] = elem['id'][0:450]
+            if len(elem['id'])>450:
+                 print(len(elem['id']), elem['id'])
+        for field in ['_id', 'etag', 'created_at', 'modified_at']:
+            if field in elem:
+                del elem[field]
+        current_list2.append(elem)
+    os.system('mkdir -p /upw_data/scanr/orga_ref')
+    os.system(f'rm -rf /upw_data/scanr/orga_ref/rnsr.jsonl')
+    to_jsonl(current_list2, f'/upw_data/scanr/orga_ref/rnsr.jsonl')
+    os.system(f'cd /upw_data/scanr/orga_ref && rm -rf rnsr.jsonl.gz && gzip -k rnsr.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr.jsonl.gz', destination=f'production/rnsr.jsonl.gz')
