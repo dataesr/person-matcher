@@ -2,6 +2,7 @@ import pandas as pd
 import requests
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.ror import dump_ror_data
+from project.server.main.paysage import dump_paysage_data
 from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID
 from project.server.main.logger import get_logger
 
@@ -11,6 +12,7 @@ logger = get_logger(__name__)
 def get_organizations_data_new():
     dump_rnsr_data()
     dump_ror_data()
+    dump_paysage_data()
 
 def get_correspondance():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
