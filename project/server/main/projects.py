@@ -167,7 +167,8 @@ def get_participations(project, df_orga):
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
                 if new_part and new_part.get('participant_id'):
-                    participations.append(new_part)
+                    if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
+                        participations.append(new_part)
                 if isinstance(p['structure'].get('institutions'), list):
                     for inst in p['structure'].get('institutions'):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
@@ -177,7 +178,8 @@ def get_participations(project, df_orga):
                                 if f in current_part:
                                     new_part[f'participant_{f}'] = current_part[f]
                             if new_part and new_part.get('participant_id'):
-                                participations.append(new_part)
+                                if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
+                                    participations.append(new_part)
     for part in participations:
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced']:
             if f in project:
@@ -196,9 +198,9 @@ def get_participations(project, df_orga):
         else:
             part['participant_isFrench'] = False
     for part in participations:
-        part['co_partners_fr_labs'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]
-        part['co_partners_fr_inst'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]
-        part['co_partners_foreign_inst'] = [k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_id_name')]
+        part['co_partners_fr_labs'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
+        part['co_partners_fr_inst'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
+        part['co_partners_foreign_inst'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_id_name')]))
         try:
             part['participant_isFrench']
         except:
