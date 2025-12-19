@@ -59,6 +59,7 @@ def load_projects(args):
         participations = []
         df_orga = get_orga_data()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
+        os.system('rm -rf /upw_data/scanr/participations_denormalized.jsonl')
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
         for ix, p in enumerate(projects):
             # rename with priorities, domains will be used later down
@@ -116,8 +117,9 @@ def load_projects(args):
                     if isinstance(p.get(k), dict):
                         if isinstance(p[k].get(lang), str):
                             text_to_autocomplete.append(p[k][lang])
-            publications_data = {}
+            # TODO uncomment
             #publications_data = get_publications_for_project(p['id'])
+            publications_data = {}
             publis_to_expose = []
             for pub in publications_data.get('publications', []):
                 simple_publi = {}
@@ -150,11 +152,18 @@ def load_projects(args):
         to_jsonl(participations, '/upw_data/scanr/participations_denormalized.jsonl') 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
-    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name) 
+    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name, 50) 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf participations_denormalized.jsonl.gz && gzip -k participations_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
-    load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation')) 
+    load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
 
+def test(project_id):
+    df_orga = get_orga_data()
+    df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True)
+    for p in df.to_dict(orient='records'):
+        if p['id'] == project_id:
+            break
+    return get_participations(p, df_orga)
 
 def get_participations(project, df_orga):
     participations = []
@@ -180,10 +189,15 @@ def get_participations(project, df_orga):
                             if new_part and new_part.get('participant_id'):
                                 if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
                                     participations.append(new_part)
+    part_ids = [k['participant_id'] for k in participations]
+    assert(len(part_ids) == len(set(part_ids)))
     for part in participations:
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced']:
             if f in project:
                 part[f'project_{f}']=project[f]
+        if ('project_budgetTotal' not in part) or (part.get('project_budgetTotal') != part.get('project_budgetTotal')):
+            if ('project_budgetFinanced' in part) and (part.get('project_budgetFinanced')==part.get('project_budgetFinanced')):
+                part['project_budgetTotal'] = part['project_budgetFinanced']
         for f in ['partiticpant_institutions']:
             if f in part:
                 del part[f]
@@ -197,6 +211,17 @@ def get_participations(project, df_orga):
             pass
         else:
             part['participant_isFrench'] = False
+        current_part = get_orga(df_orga, part['participant_id'])
+        if current_part and isinstance(current_part.get('mainAddress'), dict):
+            address = current_part.get('mainAddress')
+            new_address = {}
+            if isinstance(address.get('gps'), dict):
+                new_address['gps'] = address['gps']
+            for f in ['address', 'postcode', 'city', 'country', 'region']:
+                if isinstance(address.get(f), str):
+                    new_address[f] = address[f]
+            if new_address:
+                part['address'] = new_address
     for part in participations:
         part['co_partners_fr_labs'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
         part['co_partners_fr_inst'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
@@ -207,13 +232,13 @@ def get_participations(project, df_orga):
             logger.debug(part)
     return participations
 
-def load_scanr_projects(scanr_output_file_denormalized, index_name):
+def load_scanr_projects(scanr_output_file_denormalized, index_name, chunksize=50):
     denormalized_file=scanr_output_file_denormalized
     es_url_without_http = ES_URL.replace('https://','').replace('http://','')
     es_host = f'https://{ES_LOGIN_BSO_BACK}:{parse.quote(ES_PASSWORD_BSO_BACK)}@{es_url_without_http}'
     logger.debug('loading scanr-projects index')
     reset_index_scanr(index=index_name)
-    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit 50 --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
+    elasticimport = f"elasticdump --input={denormalized_file} --output={es_host}{index_name} --type=data --limit {chunksize} --noRefresh " + "--transform='doc._source=Object.assign({},doc)'"
     logger.debug(f'{elasticimport}')
     logger.debug('starting import in elastic')
     os.system(elasticimport)
