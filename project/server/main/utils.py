@@ -49,12 +49,8 @@ def remove_duplicates(x, main_id):
         else:
             logger.debug(f"removing duplicate in {main_id} : {natural_id}")
     return res 
-        
-def orga_with_ed():
-    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
-    df = pd.read_json(url, lines=True)
-    df = df[~df.id.isin(EXCLUDED_ID)]
-    orga = df.to_dict(orient='records')
+       
+def build_ed_map():
     df_ed = pd.read_csv('./ed_idref.tsv', sep='\t')
     df_ed.columns = ['ed', 'idref', 'label', 'paysage']
     df_ed['ed'] = df_ed['ed'].apply(lambda x:'ED'+str(x))
@@ -69,6 +65,14 @@ def orga_with_ed():
                       'isFrench': True,
                       'externalIds': [{'id': r.ed, 'type': 'ed'},
                                       {'id': 'idref'+r.idref, 'type': 'idref'}]}
+    return ed_map
+
+def orga_with_ed():
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
+    df = pd.read_json(url, lines=True)
+    df = df[~df.id.isin(EXCLUDED_ID)]
+    orga = df.to_dict(orient='records')
+    ed_map = build_ed_map()
     updated = set()
     for org in orga:
         for f in ['institutions', 'parents', 'leaders']:

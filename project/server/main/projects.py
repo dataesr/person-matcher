@@ -52,8 +52,12 @@ def load_projects(args):
     if args.get('export_from_source', True):
         dump_from_http('projects', 50)
     if args.get('reload_index_only', False) is False:
-        save_to_mongo_publi_indexes()
-        df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
+        if args.get('publi', True):
+            save_to_mongo_publi_indexes()
+        if args.get('v2', False):
+            df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz', lines=True)
+        else:
+            df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz', lines=True)
         phc_duplicates = get_phc_duplicates(df)
         projects = [p for p in df.to_dict(orient='records') if p['id'] not in phc_duplicates]
         participations = []
@@ -63,7 +67,8 @@ def load_projects(args):
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
         for ix, p in enumerate(projects):
             # rename with priorities, domains will be used later down
-            p['priorities'] = p['domains']
+            if (isinstance(p.get('domains'), list)) and not (isinstance(p.get('priorities'), list)):
+                p['priorities'] = p['domains']
             # split keywords
             if isinstance(p['keywords'], dict):
                 for lang in p['keywords']:
@@ -73,7 +78,10 @@ def load_projects(args):
                             new_keywords += [w.strip() for w in re.split(r'[,;]', k)]
                         p['keywords'][lang] = new_keywords
             denormalized_affiliations = []
-            for part in p.get('participants'):
+            participants = []
+            if isinstance(p.get('participants'), list):
+                participants = p.get('participants')
+            for part in participants:
                 is_identified=False
                 participant_label = part.get('label', {})
                 participant_name = 'participant'
@@ -117,22 +125,24 @@ def load_projects(args):
                     if isinstance(p.get(k), dict):
                         if isinstance(p[k].get(lang), str):
                             text_to_autocomplete.append(p[k][lang])
-            # TODO uncomment
-            #publications_data = get_publications_for_project(p['id'])
             publications_data = {}
             publis_to_expose = []
-            for pub in publications_data.get('publications', []):
-                simple_publi = {}
-                for f in ['id', 'projects', 'title', 'affiliations']:
-                    if pub.get(f):
-                        simple_publi[f] = pub[f]
-                if simple_publi:
-                    publis_to_expose.append(simple_publi)
+            publicationsCount = 0
+            if args.get('publi', True):
+                publications_data = get_publications_for_project(p['id'])
+                for pub in publications_data.get('publications', []):
+                    simple_publi = {}
+                    for f in ['id', 'projects', 'title', 'affiliations']:
+                        if pub.get(f):
+                            simple_publi[f] = pub[f]
+                    if simple_publi:
+                        publis_to_expose.append(simple_publi)
+                publicationsCount = publications_data.get('count', 0)
+                logger.debug(f"{publicationsCount} publications retrieved for project {p['id']}")
             projects[ix]['publications'] = publis_to_expose
-            projects[ix]['publicationsCount'] = publications_data.get('count', 0)
+            projects[ix]['publicationsCount'] = publicationsCount
             domains_infos = get_domains_from_publications(publications_data.get('publications', []))
             projects[ix].update(domains_infos)
-            logger.debug(f"{projects[ix]['publicationsCount']} publications retrieved for project {p['id']}")
             text_to_autocomplete.append(p['id'])
             text_to_autocomplete = list(set(text_to_autocomplete))
             projects[ix]['autocompleted'] = text_to_autocomplete

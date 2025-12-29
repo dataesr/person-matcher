@@ -4,6 +4,7 @@ from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.ror import dump_ror_data
 from project.server.main.paysage import dump_paysage_data
 from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID
+from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -104,7 +105,16 @@ def get_orga_data():
                 res[e] = elt[e]
             if isinstance(elt.get('address'), list):
                 res['mainAddress'] = get_main_address(elt['address'])
+                if isinstance(res['mainAddress'], dict):
+                    if isinstance(res['mainAddress'].get('postcode'), str):
+                        res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
         res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
+        #if res['isFrench']:
+        #    try:
+        #        assert(res.get('mainAddress', {}).get('country', '') == 'France')
+        #    except:
+        #        logger.debug('should be France')
+        #        logger.debug(res.get('mainAddress'))
         if res.get('status') == 'valid':
             res['status'] = 'active'
         assert(res.get('status') in ['active', 'old'])
@@ -130,7 +140,8 @@ def get_orga(orga_map, orga_id):
     return {'id': orga_id}
 
 def get_projects_data():
-    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
+    #url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz'
     df = pd.read_json(url, lines=True)
     df = df[df.type!='Casdar']
     data = df.to_dict(orient='records')
@@ -144,7 +155,8 @@ def get_projects_data():
     return proj_map
 
 def get_link_orga_projects():
-    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
+    #url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz'
     df = pd.read_json(url, lines=True)
     df = df[df.type!='Casdar']
     data = df.to_dict(orient='records')
