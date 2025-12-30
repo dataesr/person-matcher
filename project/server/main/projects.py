@@ -88,6 +88,8 @@ def load_projects(args):
                 if isinstance(participant_label.get('default'), str):
                     participant_name = participant_label['default'].split('__-__')[0]
                 part_id = part.get('structure')
+                if part_id:
+                    part['participant_id'] = part.pop('structure')
                 if participant_name.lower() in PARTICIPANTS_CODED:
                     for coded_id in ['rnsr', 'siret', 'siren', 'grid']:
                         if PARTICIPANTS_CODED[participant_name.lower()].get(coded_id):
@@ -179,7 +181,7 @@ def get_participations(project, df_orga):
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
-            if 'structure' in p:
+            if isinstance(p.get('structure'), dict):
                 new_part = {}
                 # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
                 for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding']:
