@@ -96,7 +96,7 @@ def load_projects(args):
                             if 'label' in denormalized_organization:
                                 logger.debug(f'got {part_id} from hand coded table for {participant_name}')
                                 break
-                if part_id:
+                if part_id and (not part_id.startswith('pic')):
                     is_identified=True
                     denormalized_organization = get_orga(df_orga, part_id)
                     part['structure'] = denormalized_organization

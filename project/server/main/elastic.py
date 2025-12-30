@@ -116,6 +116,10 @@ def reset_index_scanr(index: str) -> None:
                 'analyzer': 'light'
             }
 
+    for f in ['participants.funding']:
+        mappings['properties'][f] = { 
+                'type': 'float'
+                }
 
     for f in ['label.fr', 'label.en', 'label.default', 'alias', 'institutions.label']:
         mappings['properties'][f] = { 
