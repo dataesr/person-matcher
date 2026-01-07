@@ -89,6 +89,7 @@ def get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror):
 
 
 def format_paysage():
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     paysage_formatted = []
     for e in df_paysage.to_dict(orient='records'):
         new_elt = {'id': e['id']}

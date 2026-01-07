@@ -32,6 +32,9 @@ person_id_key = 'person'
 PARTICIPANTS_CODED = pickle.load(open('/src/project/server/main/participants_coded.pkl', 'rb'))
 logger.debug(f'{len(PARTICIPANTS_CODED)} participants coded loaded')
 
+def contient_lettre(s: str) -> bool:
+    return any(c.isalpha() for c in s)
+
 def get_phc_duplicates(df):
     df_phc = df[df.type=='Partenariat Hubert Curien']
     to_del = []
@@ -164,7 +167,10 @@ def load_projects(args):
         to_jsonl(participations, '/upw_data/scanr/participations_denormalized.jsonl') 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
-    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name, 50) 
+    chunk_project = 500
+    if args.get('publi', True):
+        chunk_project = 50
+    load_scanr_projects('/upw_data/scanr/projects_denormalized.jsonl', index_name, chunk_project) 
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf participations_denormalized.jsonl.gz && gzip -k participations_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
@@ -215,7 +221,7 @@ def get_participations(project, df_orga):
                 del part[f]
         part['participant_type'] = 'other'
         if 'participant_kind' in part:
-            if 'Structure de recherche' in part['participant_kind']:
+            if ('Structure de recherche' in part['participant_kind']) and (contient_lettre(part['participant_id'])):
                 part['participant_type'] = 'laboratory'
             else:
                 part['participant_type'] = 'institution'
@@ -229,6 +235,8 @@ def get_participations(project, df_orga):
             new_address = {}
             if isinstance(address.get('gps'), dict):
                 new_address['gps'] = address['gps']
+                if address['gps'].get('lat') and address['gps'].get('lon'):
+                    new_address['gps_id_name'] = str(address['gps']['lat'])+'_'+str(address['gps']['lon'])+'_'+part['participant_id']+'_'+part['participant_id_name']
             for f in ['address', 'postcode', 'city', 'country', 'region']:
                 if isinstance(address.get(f), str):
                     new_address[f] = address[f]
