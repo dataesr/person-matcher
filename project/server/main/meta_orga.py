@@ -4,15 +4,19 @@ import pickle
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.siren import format_siren
 from project.server.main.paysage import format_paysage, dump_paysage_data
+from project.server.main.ror import format_ror, dump_ror_data
 from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
+from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID, build_ed_map
 
 logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
 
 def get_lists():
+    logger.debug('getting list of ids to incorporate ...')
+    logger.debug('from pcri projects')
     df_horizon_part = get_ods_data('fr-esr-horizon-projects-entities')
     df_h2020_part = get_ods_data('fr-esr-h2020-projects-entities')
     cols = ['entities_id_source', 'entities_id']
@@ -23,6 +27,7 @@ def get_lists():
     rors = df[df.entities_id_source=='ror'].entities_id.unique().tolist()
     paysages = df[df.entities_id_source=='paysage'].entities_id.unique().tolist()
 
+    logger.debug('from patents')
     download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
     for c in df:
@@ -40,6 +45,21 @@ def get_lists():
                                 paysages.append(cur_id['id'])
                             if cur_id.get('type') == 'ror':
                                 rors.append(cur_id['id'])
+
+    # data from rnsr
+    logger.debug('from labs institutions')
+    df = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True)
+    for e in df.to_dict(orient='records'):
+        if isinstance(e.get('institutions'), list):
+            for inst in e['institutions']:
+                if isinstance(inst.get('structure'), str):
+                    if len(inst['structure']) == 9:
+                        sirens.append(inst['structure'])
+                    elif len(inst['structure']) == 14:
+                        sirets.append(inst['structure'])
+                    else:
+                        logger.debug(f'inst from rnsr {inst}')
+
     sirens = list(set(sirens))
     sirets = list(set(sirets))
     rors = list(set(rors))
@@ -51,14 +71,52 @@ def get_lists():
     return ans
 
 def get_meta_orga():
+    full_data = []
+    
+    #rnsr
+    #dump_rnsr_data()
+    rnsr_data = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True).to_dict(orient='records')
+    logger.debug(f'{len(rnsr_data)} elts from rnsr')
+    full_data += rnsr_data
+        
     try:
         lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
+        logger.debug('read pkl list')
     except:
         lists = get_lists()
-    #siren
-    siren_data = format_siren(lists['siren'], lists['siret'])
+    
     #paysage
-    dump_paysage_data()
-    paysage_data = format_paysage()
-    #rnsr
-    dump_rnsr_data()
+    #dump_paysage_data()
+    paysage_data = format_paysage(lists['paysage'])
+    to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')
+    logger.debug(f'{len(paysage_data)} elts from paysage')
+    full_data += paysage_data
+    existing_siren, existing_ror = [], []
+    for e in paysage_data:
+        for k in e.get('externalIds', []):
+            if k.get('type', '').startwith('sire'):
+                existing_siren.append(k['id'][0:9])
+            if k.get('type', '').startwith('ror'):
+                existing_ror.append(k['id'])
+    
+    #siren
+    siren_data = format_siren(lists['siren'], lists['siret'], existing_siren)
+    to_jsonl(siren_data, '/upw_data/scanr/orga_ref/siren_data_formatted.jsonl')
+    logger.debug(f'{len(siren_data)} elts from siren')
+    full_data += siren_data
+    
+    # ror
+    dump_ror_data()
+    ror_data = format_ror(lists['ror'], existing_ror)
+    logger.debug(f'{len(ror_data)} elts from ror')
+    full_data += ror_data
+
+    # ed
+    ed_map = build_ed_map()
+    ed_data = list(ed_map.values())
+    to_jsonl(ed_data, '/upw_data/scanr/orga_ref/ed_data_formatted.jsonl')
+    logger.debug(f'{len(ed_data)} elts from ed')
+    full_data+= ed_data
+
+    to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations_v2.jsonl')
+    logger.debug(f'{len(full_data)} elts from total')

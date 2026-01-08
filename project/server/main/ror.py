@@ -58,3 +58,5 @@ def dump_ror_data() -> list:
     os.system(f'cd /upw_data/scanr/orga_ref && rm -rf ror.jsonl.gz && gzip -k ror.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/ror.jsonl.gz', destination=f'production/ror.jsonl.gz')
 
+def format_ror(ror_list):
+    return []

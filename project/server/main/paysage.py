@@ -1,5 +1,7 @@
 import requests
 import os
+import pandas as pd
+import json
 from project.server.main.ods import get_ods_data
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
@@ -19,7 +21,7 @@ def dump_paysage_data():
     df_paysage_id = get_ods_data('fr-esr-paysage_structures_identifiants')
     df_paysage_struct = get_ods_data('structures-de-paysage-v2')
     df_web = get_ods_data('fr-esr-paysage_structures_websites')
-    id_map, web_map = {}, {}, {}
+    id_map, web_map = {}, {}
     for e in df_paysage_id.to_dict(orient='records'):
         current_paysage = e['id_paysage']
         if current_paysage not in id_map:
@@ -88,14 +90,18 @@ def get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror):
     return ans
 
 
-def format_paysage():
+def format_paysage(paysage_ids):
+    input_id_set = set(paysage_ids)
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     paysage_formatted = []
     for e in df_paysage.to_dict(orient='records'):
         new_elt = {'id': e['id']}
+        if e['id'] not in input_id_set:
+            continue
         new_elt['externalIds'] = [{'id': e['id'], 'type': 'paysage'}]
         for k in e['external_ids']:
-            new_k = {'id': k['id_value'], 'type': k['id_type']}
+            if isinstance(k.get('id_value'), str):
+                new_k = {'id': k['id_value'], 'type': k['id_type']}
             if new_k not in new_elt['externalIds']:
                 new_elt['externalIds'].append(new_k)
         # startDate
@@ -140,8 +146,16 @@ def format_paysage():
         if isinstance(currentname.get('acronymFr'), str):
             new_elt['acronym']['fr'] = currentname['acronymFr']
             new_elt['acronym']['default'] = currentname['acronymFr']
-        # kind ??
-        # level ??
+        # kind
+        if e.get('legalcategory_sector') == 'privé':
+            new_elt['kind'] = ['Secteur privé'] 
+        elif e.get('legalcategory_sector') == 'public':
+            new_elt['kind'] = ['Secteur public'] 
+        elif e.get('legalcategory_sector'):
+            logger.debug(e.get('legalcategory_sector'))
+        # level
+        if e.get('legalcategory_longnamefr'):
+            new_elt['level'] = e.get('legalcategory_longnamefr')
         new_elt['description'] = {}
         if isinstance(e.get('descriptionfr'), str):
             new_elt['description']['fr'] = e.get('descriptionfr')
@@ -158,6 +172,8 @@ def format_paysage():
             lat = e['gps'].split(',')[0]
             lon = e['gps'].split(',')[1]
             address['gps'] = {'lat': lat, 'lon': lon}
+        if e.get('iso3') == 'FRA':
+            new_elt['isFrench'] = True
         new_elt['address'] = [address]
         if e.get('websites'):
             new_elt['links'] = e['websites']

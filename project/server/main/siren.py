@@ -1,5 +1,7 @@
 import pandas as pd
 import requests
+import numpy as np
+import datetime
 from io import BytesIO
 from pyproj import Transformer
 from project.server.main.ods import get_ods_data
@@ -12,12 +14,14 @@ MOUNTED_VOLUME = '/upw_data/'
 # URLs Parquet officiels
 UNITE_LEGALE_URL = "https://www.data.gouv.fr/api/1/datasets/r/350182c9-148a-46e0-8389-76c2ec1374a3"
 ETABLISSEMENT_URL = "https://www.data.gouv.fr/api/1/datasets/r/a29c1297-1f92-4e2a-8f6b-8c902ce96c5f"
+UNITE_LEGALE_HISTO_URL = "https://www.data.gouv.fr/api/1/datasets/r/1b9290ed-d0bc-461f-ba31-0250a99cc140"
 
 # Colonnes utiles après correction
 UL_COLS = [
     "siren",
     "denominationUniteLegale",
     "categorieJuridiqueUniteLegale",
+    "dateDebut",
     "dateCreationUniteLegale",
     "etatAdministratifUniteLegale",
     "activitePrincipaleUniteLegale",
@@ -39,6 +43,8 @@ ET_COLS = [
     "coordonneeLambertOrdonneeEtablissement"
 ]
 
+UL_HISTO_COLS = [
+        "siren", "dateDebut", "dateFin", "denominationUniteLegale"]
 
 # Fonction pour lire parquet depuis URL
 def read_parquet_from_url(url, columns=None):
@@ -47,6 +53,9 @@ def read_parquet_from_url(url, columns=None):
     r.raise_for_status()
     return pd.read_parquet(BytesIO(r.content), columns=columns)
 
+def get_ul_histo():
+    df_ul = read_parquet_from_url(UNITE_LEGALE_HISTO_URL, columns=UL_HISTO_COLS)
+    return df_ul
 
 def get_etab():
     df_et = read_parquet_from_url(ETABLISSEMENT_URL, columns=ET_COLS)
@@ -63,14 +72,33 @@ transformer = Transformer.from_crs(
 )
 
 def get_lat_lon(df):
-    df["lon"], df["lat"] = transformer.transform(
-    df["coordonneeLambertAbscisseEtablissement"].values,
-    df["coordonneeLambertOrdonneeEtablissement"].values
+    # Conversion en numérique, valeurs invalides -> NaN
+    x = pd.to_numeric(
+        df["coordonneeLambertAbscisseEtablissement"],
+        errors="coerce"
     )
+    y = pd.to_numeric(
+        df["coordonneeLambertOrdonneeEtablissement"],
+        errors="coerce"
+    )
+
+    # Initialisation des colonnes résultat
+    df["lon"] = np.nan
+    df["lat"] = np.nan
+
+    # Masque des lignes exploitables
+    mask = x.notna() & y.notna()
+
+    # Transformation uniquement sur les lignes valides
+    df.loc[mask, "lon"], df.loc[mask, "lat"] = transformer.transform(
+        x[mask].values,
+        y[mask].values
+    )
+
     return df
 
-
-def format_siren(siren_list, siret_list):
+def format_siren(siren_list, siret_list, existing_siren):
+    existing_siren = set(existing_siren)
     sirens = siren_list + [a[0:9] for a in siret_list]
     sirens = list(set(sirens))
 
@@ -86,6 +114,8 @@ def format_siren(siren_list, siret_list):
     sirene_formatted = []
     for e in all_et.to_dict(orient='records'):
         main_id = e['siren']
+        if main_id in existing_siren_set:
+            continue
         if e['etablissementSiege'] is False:
             main_id = e['siret']
         new_elt = {'id': main_id}
@@ -93,8 +123,8 @@ def format_siren(siren_list, siret_list):
         if e['etablissementSiege'] is False:
             new_elt['externalIds'].append({'id': e['siret'], 'type': 'siret'})
         # startDate
-        if isinstance(e.get('dateCreationUniteLegale'), str):
-            new_elt['startDate'] = e['dateCreationUniteLegale']+'T00:00:00'
+        if isinstance(e.get('dateCreationUniteLegale'), datetime.date):
+            new_elt['startDate'] = str(e['dateCreationUniteLegale'])+'T00:00:00'
         if new_elt.get('startDate'):
             new_elt['creationYear'] = int(new_elt['startDate'][0:4])
         # status
