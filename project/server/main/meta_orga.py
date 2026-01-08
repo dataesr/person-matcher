@@ -3,7 +3,7 @@ import requests
 import pickle
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.siren import format_siren
-from project.server.main.paysage import format_paysage, dump_paysage_data
+from project.server.main.paysage import format_paysage, dump_paysage_data, get_uai2siren
 from project.server.main.ror import format_ror, dump_ror_data
 from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
@@ -73,8 +73,12 @@ def get_lists():
 def get_meta_orga():
     full_data = []
     
+    #paysage
+    #dump_paysage_data()
+    uai2siren = get_uai2siren()
+
     #rnsr
-    #dump_rnsr_data()
+    #dump_rnsr_data(500, uai2siren)
     rnsr_data = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True).to_dict(orient='records')
     logger.debug(f'{len(rnsr_data)} elts from rnsr')
     full_data += rnsr_data
@@ -85,8 +89,6 @@ def get_meta_orga():
     except:
         lists = get_lists()
     
-    #paysage
-    #dump_paysage_data()
     paysage_data = format_paysage(lists['paysage'])
     to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')
     logger.debug(f'{len(paysage_data)} elts from paysage')
@@ -94,9 +96,9 @@ def get_meta_orga():
     existing_siren, existing_ror = [], []
     for e in paysage_data:
         for k in e.get('externalIds', []):
-            if k.get('type', '').startwith('sire'):
+            if k.get('type', '').startswith('sire'):
                 existing_siren.append(k['id'][0:9])
-            if k.get('type', '').startwith('ror'):
+            if k.get('type', '').startswith('ror'):
                 existing_ror.append(k['id'])
     
     #siren

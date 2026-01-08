@@ -89,7 +89,7 @@ def dump_from_http(db, nb_per_page = 500):
     upload_object(container='scanr-data', source = f'/upw_data/scanr/{db}.jsonl.gz', destination=f'production/{db}.jsonl.gz')
 
 
-def dump_rnsr_data(nb_per_page=500):
+def dump_rnsr_data(nb_per_page=500, uai2siren={}):
     db = 'organizations'
     collection = 'scanr'
     url_base = f'{DATAESR_URL}/{db}/{collection}?where=' + '{"externalIds.type":"rnsr"}'
@@ -114,6 +114,10 @@ def dump_rnsr_data(nb_per_page=500):
         for field in ['_id', 'etag', 'created_at', 'modified_at']:
             if field in elem:
                 del elem[field]
+        for k in elem.get('institutions', []):
+            if isinstance(k.get('structure'), str) and k['structure'] in uai2siren:
+                logger.debug(f"replace UAI {k['structure']} with {uai2siren[k['structure']]}")
+                k['structure'] = uai2siren[k['structure']]
         current_list2.append(elem)
     os.system('mkdir -p /upw_data/scanr/orga_ref')
     os.system(f'rm -rf /upw_data/scanr/orga_ref/rnsr.jsonl')

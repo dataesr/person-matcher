@@ -27,7 +27,7 @@ def dump_paysage_data():
         if current_paysage not in id_map:
             id_map[current_paysage] = []
         new_elt, new_elt_siren = {}, {}
-        if e['id_type'] in ['ror', 'rnsr', 'siret']:
+        if e['id_type'] in ['ror', 'rnsr', 'siret', 'uai']:
             for f in ['id_value', 'id_type', 'active', 'id_startdate', 'id_enddate']:
                 if e.get(f):
                     new_elt[f] = e[f]
@@ -89,6 +89,21 @@ def get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror):
         ans = get_status_from_paysage(paysage_id, df_paysage_struct)
     return ans
 
+def get_uai2siren():
+    uai2siren = {}
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
+    for e in df_paysage.to_dict(orient='records'):
+        siren, uai = None, None
+        for k in e['external_ids']:
+            if isinstance(k.get('id_value'), str):
+                if k['id_type'].startswith('sire'):
+                    siren = k['id_value'][0:9]
+                if k['id_type'].startswith('uai'):
+                    uai = k['id_value']
+        if siren and uai:
+            uai2siren[uai]=siren
+    logger.debug(f'{len(uai2siren)} elts in uai2siren')
+    return uai2siren
 
 def format_paysage(paysage_ids):
     input_id_set = set(paysage_ids)

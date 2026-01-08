@@ -98,7 +98,7 @@ def get_lat_lon(df):
     return df
 
 def format_siren(siren_list, siret_list, existing_siren):
-    existing_siren = set(existing_siren)
+    existing_siren_set = set(existing_siren)
     sirens = siren_list + [a[0:9] for a in siret_list]
     sirens = list(set(sirens))
 
