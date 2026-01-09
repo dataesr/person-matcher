@@ -103,8 +103,8 @@ def get_meta_orga():
     
     #paysage
     dump_paysage_data()
-    #dump_ror_data()
-    #dump_rnsr_data(500, uai2siren)
+    dump_ror_data()
+    dump_rnsr_data(500, uai2siren)
 
     uai2siren = get_uai2siren()
     grid2ror = get_grid2ror()

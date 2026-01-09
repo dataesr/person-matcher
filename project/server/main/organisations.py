@@ -115,8 +115,7 @@ def load_orga(args):
     #    time.sleep(3600 * 2) # la tache précédente prend du temps
     #    dump_from_http('organizations')
     if args.get('reload_index_only', False) is False:
-        # todo uncomment
-        #save_to_mongo_publi_indexes()
+        save_to_mongo_publi_indexes()
         orga_map = get_orga_map()
         orga = get_orga_list()
         reverse_relation = compute_reverse_relations(orga)
