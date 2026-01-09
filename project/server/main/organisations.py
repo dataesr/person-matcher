@@ -205,7 +205,7 @@ def load_orga(args):
                     if isinstance(new_p.get(k), dict):
                         if isinstance(new_p[k].get(lang), str):
                             text_to_autocomplete.append(new_p[k][lang])
-            if new_p.get('alias'):
+            if isinstance(new_p.get('alias'), list):
                 text_to_autocomplete += new_p['alias']
             reasons_scanr = list(set(reasons_scanr))
             reasons_scanr.sort()
