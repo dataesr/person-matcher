@@ -18,6 +18,21 @@ CHUNK_SIZE = 128
 SOURCE = 'ror'
 SCHEMA_VERSION = "2.1"
 
+
+def get_grid2ror():
+    grid2ror = {}
+    df_ror = pd.read_json('/upw_data/scanr/orga_ref/ror.jsonl', lines=True)
+    for e in df_ror.to_dict(orient='records'):
+        ror = e['id'].split('/')[-1]
+        grids = []
+        for k in e['external_ids']:
+                if k['type'] == 'grid':
+                    grids = k['all']
+        for grid in grids:
+            grid2ror[grid]=ror
+    logger.debug(f'{len(grid2ror)} elts in grid2ror')
+    return grid2ror
+
 @retry(delay=200, tries=3)
 def get_last_ror_dump_url():
     ROR_URL = "https://zenodo.org/api/communities/ror-data/records?q=&sort=newest"
@@ -105,7 +120,7 @@ def format_ror(ror_ids, existing_rors):
             new_elt['kind'] = ['Secteur public'] 
         #address
         address = {'main': True}
-        if len(e.get('locations'), []) > 1:
+        if len(e.get('locations', [])) > 1:
             if isinstance(e['locations'][0].get('geonames_details'), dict):
                 geo_details = e['locations'][0].get('geonames_details')
                 if 'name' in geo_details:
@@ -121,7 +136,7 @@ def format_ror(ror_ids, existing_rors):
         new_elt['address'] = [address]
         # website
         if e.get('links'):
-            new_elt['links'] = e['websites']
+            new_elt['links'] = e['links']
             for k in new_elt['links']:
                 k['url'] = k['value']
         ror_formatted.append(new_elt)

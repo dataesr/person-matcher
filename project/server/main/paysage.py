@@ -31,12 +31,11 @@ def dump_paysage_data():
             for f in ['id_value', 'id_type', 'active', 'id_startdate', 'id_enddate']:
                 if e.get(f):
                     new_elt[f] = e[f]
-        id_map[current_paysage].append(new_elt)
-        if e['id_type'] == 'siret':
-            new_elt_siren = new_elt.copy()
-            new_elt_siren['id_type'] = 'siren'
-            new_elt_siren['id_value'] = new_elt['id_value'][0:9]
+        if new_elt not in id_map[current_paysage]:
             id_map[current_paysage].append(new_elt)
+            if e['id_type'] == 'siret':
+                new_elt_siren = {'id_type': 'siren', 'id_value': new_elt['id_value'][0:9]}    
+                id_map[current_paysage].append(new_elt_siren)
     for e in df_web.to_dict(orient='records'):
         current_paysage = e['id_structure_paysage']
         if current_paysage not in web_map:
@@ -105,20 +104,25 @@ def get_uai2siren():
     logger.debug(f'{len(uai2siren)} elts in uai2siren')
     return uai2siren
 
-def format_paysage(paysage_ids):
+def format_paysage(paysage_ids, sirens):
     input_id_set = set(paysage_ids)
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     paysage_formatted = []
     for e in df_paysage.to_dict(orient='records'):
         new_elt = {'id': e['id']}
-        if e['id'] not in input_id_set:
-            continue
+        to_keep = False
+        if e['id'] in input_id_set:
+            to_keep = True
         new_elt['externalIds'] = [{'id': e['id'], 'type': 'paysage'}]
         for k in e['external_ids']:
             if isinstance(k.get('id_value'), str):
                 new_k = {'id': k['id_value'], 'type': k['id_type']}
+                if k['id_value'][0:9] in sirens:
+                    to_keep = True
             if new_k not in new_elt['externalIds']:
                 new_elt['externalIds'].append(new_k)
+        if to_keep is False:
+            continue
         # startDate
         if isinstance(e.get('creationdate'), str):
             if len(e['creationdate'])==4:

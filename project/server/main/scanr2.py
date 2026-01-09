@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json, get_all_manual_matches, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.vip import get_vip
@@ -121,14 +121,14 @@ def get_publications_for_project(project):
     return {'count': len(res), 'publications': res}
 
 @retry(delay=200, tries=3)
-def get_publications_for_affiliation(aff):
+def get_publications_for_affiliation(affs):
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     collection_name = 'publi_meta'
     mycoll = mydb[collection_name]
     res = []
-    count = mycoll.count_documents({ 'affiliations' : { '$in': [aff] } })
-    cursor = mycoll.find({ 'affiliations' : { '$in': [aff] } }).limit(1000)
+    count = mycoll.count_documents({ 'affiliations' : { '$in': affs } })
+    cursor = mycoll.find({ 'affiliations' : { '$in': affs } }).limit(1000)
     for r in cursor:
         del r['_id']
         if 'affiliations' in r:
@@ -207,7 +207,7 @@ def export_scanr2(args):
         mycoll.create_index('authors.person')
         myclient.close()
         os.system(f'rm -rf /upw_data/scanr_authors/split/persons_denormalized_{author_ix}.jsonl')
-        df_orga = get_orga_data()
+        orga_map = get_orga_map()
         excluded = get_not_to_export_idref()
 
         #manual_matches = get_manual_matches()
@@ -248,7 +248,7 @@ def export_scanr2(args):
                 #        publis_to_add = get_publications_from_ids(publi_id_to_add)
                 #        author_publications = author_publications + publis_to_add
                 #        logger.debug(f"added {len(publis_to_add)} publications manually to {idref}")
-                person = export_one_person(idref, author_publications, input_dict, df_orga, ix, nbTotalIdrefs)
+                person = export_one_person(idref, author_publications, input_dict, orga_map, ix, nbTotalIdrefs)
                 ix += 1
                 if person:
                     new_persons.append(person)
@@ -298,7 +298,7 @@ def get_domains_from_publications(publications):
     top_domains = domains[0:20]
     return {'domains': domains[0:500], 'top_domains': top_domains}
 
-def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdrefs):
+def export_one_person(idref, publications, input_dict, orga_map, ix, nbTotalIdrefs):
     prizes, links, externalIds = [], [], []
     if idref in input_dict:
         current_data = input_dict[idref]
@@ -331,7 +331,7 @@ def export_one_person(idref, publications, input_dict, df_orga, ix, nbTotalIdref
                             names[key] += 1
                     if isinstance(a.get('affiliations', []), list):
                         for aff in a.get('affiliations', []):
-                            denormalized = get_orga(df_orga, aff)
+                            denormalized = get_orga(orga_map, aff)
                             if denormalized and isinstance(denormalized.get('label'), dict) and isinstance(denormalized.get('label').get('default'), str):
                                 if aff not in affiliations:
                                     affiliations[aff] = {'structure': denormalized, 'sources': [], 'publicationsCount': 0, 'sources_id': set([])}

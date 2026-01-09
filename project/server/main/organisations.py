@@ -1,9 +1,9 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, save_to_mongo_publi_indexes
+from project.server.main.utils import chunks, to_jsonl, to_json, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_orga_list, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
 from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
@@ -109,15 +109,16 @@ def load_orga(args):
         return
 
     get_zip_from_crawler = args.get('get_zip_from_crawler', True)
-    if args.get('export_from_source', False):
-        logger.debug('launch task on 185 export_scanr_to_mongo and sleep for 2 hours')
-        r = requests.post(f"{DATAESR_URL}/organizations/tasks", json = {"task_name": "export_scanr_to_mongo"}, headers={"Authorization": f"Basic {DATAESR_HEADER}"})
-        time.sleep(3600 * 2) # la tache précédente prend du temps
-        dump_from_http('organizations')
+    #if args.get('export_from_source', False):
+    #    logger.debug('launch task on 185 export_scanr_to_mongo and sleep for 2 hours')
+    #    r = requests.post(f"{DATAESR_URL}/organizations/tasks", json = {"task_name": "export_scanr_to_mongo"}, headers={"Authorization": f"Basic {DATAESR_HEADER}"})
+    #    time.sleep(3600 * 2) # la tache précédente prend du temps
+    #    dump_from_http('organizations')
     if args.get('reload_index_only', False) is False:
-        save_to_mongo_publi_indexes()
-        df_orga = get_orga_data()
-        orga = orga_with_ed()
+        # todo uncomment
+        #save_to_mongo_publi_indexes()
+        orga_map = get_orga_map()
+        orga = get_orga_list()
         reverse_relation = compute_reverse_relations(orga)
         map_proj_orga = get_link_orga_projects()
         map_patent_orga = get_patents_orga_dict()
@@ -150,7 +151,16 @@ def load_orga(args):
                     new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]
                     logger.debug(f'{f[0:-1]}Of {len(reverse_relation[f][current_id])}')
             logger.debug(f"denormalize orga {p['id']} ({ix}/{len(orga)})")
-            publications_data = get_publications_for_affiliation(p['id'])
+            text_to_autocomplete = []
+            all_ids = [p['id']]
+            for ext in new_p.get('externalIds', []):
+                if isinstance(ext.get('id'), str):
+                    text_to_autocomplete.append(ext['id'])
+                    all_ids.append(ext['id'])
+                if ext.get('type') == 'rnsr':
+                    reasons_scanr.append('rnsr')
+            all_ids = list(set(all_ids))
+            publications_data = get_publications_for_affiliation(all_ids)
             new_p['publications'] = publications_data['publications']
             new_p['publicationsCount'] = publications_data['count']
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
@@ -176,7 +186,7 @@ def load_orga(args):
                         nb_relationships += 1
                         reasons_scanr.append('relationship')
                         current_id = e.get('structure')
-                        new_p[f][ix]['denormalized'] = get_orga(df_orga, current_id)
+                        new_p[f][ix]['denormalized'] = get_orga(orga_map, current_id)
                 if f not in ['predecessors']:
                     new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
             if new_p.get('spinoffs'):
@@ -191,7 +201,6 @@ def load_orga(args):
             #    new_p['badges'] = p['badges']
             #    nb_badges = len(p['badges'])
             #    reasons_scanr.append('badge')
-            text_to_autocomplete = []
             for lang in ['default', 'en', 'fr']:
                 for k in ['label', 'acronym']:
                     if isinstance(new_p.get(k), dict):
@@ -199,11 +208,6 @@ def load_orga(args):
                             text_to_autocomplete.append(new_p[k][lang])
             if new_p.get('alias'):
                 text_to_autocomplete += new_p['alias']
-            for ext in new_p.get('externalIds', []):
-                if isinstance(ext.get('id'), str):
-                    text_to_autocomplete.append(ext['id'])
-                if ext.get('type') == 'rnsr':
-                    reasons_scanr.append('rnsr')
             reasons_scanr = list(set(reasons_scanr))
             reasons_scanr.sort()
             new_p['reasons_scanr'] = reasons_scanr
@@ -258,7 +262,7 @@ def load_scanr_orga(scanr_output_file_denormalized, index_name):
 
 
 def launch_crawl():
-    df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz', lines=True)
+    df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations-v2.jsonl.gz', lines=True)
     orga = df.to_dict(orient='records')
 
     structure_list_to_crawl = []

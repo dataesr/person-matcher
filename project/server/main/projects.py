@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_project, get_domains_from_publications
@@ -64,7 +64,7 @@ def load_projects(args):
         phc_duplicates = get_phc_duplicates(df)
         projects = [p for p in df.to_dict(orient='records') if p['id'] not in phc_duplicates]
         participations = []
-        df_orga = get_orga_data()
+        orga_map = get_orga_map()
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         os.system('rm -rf /upw_data/scanr/participations_denormalized.jsonl')
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
@@ -94,16 +94,16 @@ def load_projects(args):
                 if part_id:
                     part['participant_id'] = part.pop('structure')
                 if participant_name.lower() in PARTICIPANTS_CODED:
-                    for coded_id in ['rnsr', 'siret', 'siren', 'grid']:
+                    for coded_id in ['rnsr', 'paysage', 'siret', 'siren', 'ror', 'grid']:
                         if PARTICIPANTS_CODED[participant_name.lower()].get(coded_id):
                             part_id = PARTICIPANTS_CODED[participant_name.lower()].get(coded_id)
-                            denormalized_organization = get_orga(df_orga, part_id)
+                            denormalized_organization = get_orga(orga_map, part_id)
                             if 'label' in denormalized_organization:
                                 logger.debug(f'got {part_id} from hand coded table for {participant_name}')
                                 break
                 if part_id and (not part_id.startswith('pic')):
                     is_identified=True
-                    denormalized_organization = get_orga(df_orga, part_id)
+                    denormalized_organization = get_orga(orga_map, part_id)
                     part['structure'] = denormalized_organization
                     denormalized_affiliations.append(denormalized_organization)
                 participant_key = f'{participant_name}---{is_identified}'
@@ -160,7 +160,7 @@ def load_projects(args):
                         if isinstance(projects[ix][field].get(lang), str):
                             title_abs_text += projects[ix][field][lang]+' '
             projects[ix]['title_abs_text'] = title_abs_text
-            formatted_participations = get_participations(projects[ix], df_orga)
+            formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:
                 participations += formatted_participations 
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
@@ -176,14 +176,14 @@ def load_projects(args):
     load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
 
 def test(project_id):
-    df_orga = get_orga_data()
+    orga_map = get_orga_map()
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True)
     for p in df.to_dict(orient='records'):
         if p['id'] == project_id:
             break
-    return get_participations(p, df_orga)
+    return get_participations(p, orga_map)
 
-def get_participations(project, df_orga):
+def get_participations(project, orga_map):
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
@@ -200,7 +200,7 @@ def get_participations(project, df_orga):
                     for inst in p['structure'].get('institutions'):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
                             new_part = {}
-                            current_part = get_orga(df_orga, inst['structure'])
+                            current_part = get_orga(orga_map, inst['structure'])
                             for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench']:
                                 if f in current_part:
                                     new_part[f'participant_{f}'] = current_part[f]
@@ -229,7 +229,7 @@ def get_participations(project, df_orga):
             pass
         else:
             part['participant_isFrench'] = False
-        current_part = get_orga(df_orga, part['participant_id'])
+        current_part = get_orga(orga_map, part['participant_id'])
         if current_part and isinstance(current_part.get('mainAddress'), dict):
             address = current_part.get('mainAddress')
             new_address = {}

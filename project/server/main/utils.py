@@ -3,12 +3,50 @@ import pandas as pd
 import itertools
 from project.server.main.logger import get_logger
 import pymongo
+import re
 
 NB_MAX_CO_ELEMENTS = 20
 
 logger = get_logger(__name__)
     
 EXCLUDED_ID = ['881000251']
+
+
+def identifier_type(identifiant: str):
+    """
+    Détermine le type d'identifiant parmi :
+    siren, siret, grid, ror, rnsr
+
+    Retourne le nom du type ou None si aucun ne correspond.
+    """
+
+    if not identifiant:
+        return None
+
+    identifiant = identifiant.strip()
+
+    # SIREN : 9 chiffres
+    if re.fullmatch(r"\d{9}", identifiant):
+        return "siren"
+
+    # SIRET : 14 chiffres
+    if re.fullmatch(r"\d{14}", identifiant):
+        return "siret"
+
+    # GRID : commence par 'grid.'
+    if identifiant.startswith("grid."):
+        return "grid"
+
+    # ROR : regex fournie
+    if re.fullmatch(r"^0[a-hj-km-np-tv-z0-9]{6}[0-9]{2}$", identifiant):
+        return "ror"
+
+    # RNSR : 10 caractères alphanumériques
+    if re.fullmatch(r"[A-Za-z0-9]{10}", identifiant):
+        return "rnsr"
+
+    return None
+
 
 def save_to_mongo_publi_indexes():
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
@@ -67,7 +105,7 @@ def build_ed_map():
                                       {'id': 'idref'+r.idref, 'type': 'idref'}]}
     return ed_map
 
-def orga_with_ed():
+def orga_with_ed_deprecated():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
     df = pd.read_json(url, lines=True)
     df = df[~df.id.isin(EXCLUDED_ID)]

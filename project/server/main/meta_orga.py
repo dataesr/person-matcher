@@ -1,20 +1,22 @@
 import pandas as pd
 import requests
+import os
 import pickle
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.siren import format_siren
 from project.server.main.paysage import format_paysage, dump_paysage_data, get_uai2siren
-from project.server.main.ror import format_ror, dump_ror_data
-from project.server.main.ods import get_ods_data
+from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
+from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
-from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID, build_ed_map
+from project.server.main.s3 import upload_object
+from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, build_ed_map, identifier_type, remove_duplicates
 
 logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
 
-def get_lists():
+def get_lists(uai2siren, grid2ror):
     logger.debug('getting list of ids to incorporate ...')
     logger.debug('from pcri projects')
     df_horizon_part = get_ods_data('fr-esr-horizon-projects-entities')
@@ -60,6 +62,32 @@ def get_lists():
                     else:
                         logger.debug(f'inst from rnsr {inst}')
 
+    #awards
+    awards = get_awards()
+    sirens += [k for k in awards if len(k)==9]
+    
+    #agreements
+    agreements = get_agreements()
+    sirens += [k for k in agreements if len(k)==9]
+
+    # projects
+    df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz', lines=True)
+    for e in df.to_dict(orient='records'):
+        if isinstance(e.get('participants'), list):
+            for p in e['participants']:
+                if isinstance(p.get('structure'), str):
+                    id_type = identifier_type(p.get('structure'))
+                    if id_type=='siren':
+                        sirens.append(p['structure'])
+                    if id_type=='siret':
+                        sirets.append(p['structure'])
+                    if id_type=='ror':
+                        rors.append(p['structure'])
+                    if p['structure'] in uai2siren:
+                        sirens.append(uai2siren[p['structure']])
+                    if p['structure'] in grid2ror:
+                        rors.append(grid2ror[p['structure']])
+
     sirens = list(set(sirens))
     sirets = list(set(sirets))
     rors = list(set(rors))
@@ -74,22 +102,27 @@ def get_meta_orga():
     full_data = []
     
     #paysage
-    #dump_paysage_data()
+    dump_paysage_data()
+    #dump_ror_data()
+    #dump_rnsr_data(500, uai2siren)
+
     uai2siren = get_uai2siren()
+    grid2ror = get_grid2ror()
 
     #rnsr
-    #dump_rnsr_data(500, uai2siren)
     rnsr_data = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True).to_dict(orient='records')
     logger.debug(f'{len(rnsr_data)} elts from rnsr')
     full_data += rnsr_data
+        
+    lists = get_lists(uai2siren, grid2ror)
         
     try:
         lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
         logger.debug('read pkl list')
     except:
-        lists = get_lists()
+        lists = get_lists(uai2siren, grid2ror)
     
-    paysage_data = format_paysage(lists['paysage'])
+    paysage_data = format_paysage(lists['paysage'], lists['siren'])
     to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')
     logger.debug(f'{len(paysage_data)} elts from paysage')
     full_data += paysage_data
@@ -108,7 +141,6 @@ def get_meta_orga():
     full_data += siren_data
     
     # ror
-    dump_ror_data()
     ror_data = format_ror(lists['ror'], existing_ror)
     logger.debug(f'{len(ror_data)} elts from ror')
     full_data += ror_data
@@ -120,5 +152,12 @@ def get_meta_orga():
     logger.debug(f'{len(ed_data)} elts from ed')
     full_data+= ed_data
 
-    to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations_v2.jsonl')
+    for org in full_data:
+        for f in ['institutions', 'parents', 'leaders']:
+            if org.get(f):
+                org[f] = remove_duplicates(org[f], org['id'])
+
+    to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations-v2.jsonl')
     logger.debug(f'{len(full_data)} elts from total')
+    os.system('cd /upw_data/scanr/orga_ref/ && rm -rf organizations-v2.jsonl.gz && gzip organizations-v2.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/organizations-v2.jsonl.gz', destination='production/organizations-v2.jsonl.gz')

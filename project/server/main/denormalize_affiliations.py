@@ -3,20 +3,14 @@ import requests
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.ror import dump_ror_data
 from project.server.main.paysage import dump_paysage_data
-from project.server.main.utils import chunks, to_jsonl, to_json, orga_with_ed, EXCLUDED_ID
+from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID
 from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-def get_organizations_data_new():
-    dump_rnsr_data()
-    dump_ror_data()
-    dump_paysage_data()
-
 def get_correspondance():
-    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations.jsonl.gz'
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations-v2.jsonl.gz'
     df = pd.read_json(url, lines=True)
     df = df[~df.id.isin(EXCLUDED_ID)]
     #df = df.set_index('id')
@@ -25,7 +19,7 @@ def get_correspondance():
     raw_rnsrs = data
     for r in raw_rnsrs:
         current_id = None
-        externalIdsToKeep = [e for e in r.get('externalIds', []) if e['type'] in ['rnsr',  'ror', 'grid', 'bce', 'sirene', 'siren', 'siret'] ]
+        externalIdsToKeep = [e for e in r.get('externalIds', []) if e['type'] in ['rnsr',  'ror', 'grid', 'bce', 'sirene', 'siren', 'siret', 'paysage', 'uai'] ]
         for e in externalIdsToKeep:
             e['main_id'] = r['id']
             current_id = e['id']
@@ -33,19 +27,19 @@ def get_correspondance():
                 correspondance[current_id] = []
         if current_id is None:
             continue
-
         correspondance[current_id] += [k for k in externalIdsToKeep]
         for e in r.get('externalIds', []):
-            if e['type'] in ['siren', 'siret', 'sirene', 'bce']:
+            if e['type'] in ['siren', 'siret', 'sirene', 'bce', 'grid', 'ror', 'bce', 'paysage', 'uai']:
                 new_id = e['id']
                 correspondance[new_id] += [k for k in externalIdsToKeep]
-
-        for e in r.get('institutions'):
-            if e.get('structure'):
-                if isinstance(e.get('relationType'), str) and 'tutelle' in e['relationType'].lower():
-                    elt = {'id': e['structure'], 'type': 'siren'}
-                    if elt not in correspondance[current_id]:
-                        correspondance[current_id].append(elt)
+        if isinstance(r.get('institutions'), list):
+            for e in r.get('institutions'):
+                if isinstance(e, dict):
+                    if e.get('structure'):
+                        if isinstance(e.get('relationType'), str) and 'tutelle' in e['relationType'].lower():
+                            elt = {'id': e['structure'], 'type': 'siren'}
+                            if elt not in correspondance[current_id]:
+                                correspondance[current_id].append(elt)
     logger.debug(f'{len(correspondance)} ids loaded with equivalent ids')
     return correspondance
 
@@ -94,12 +88,18 @@ def compute_is_french(elt_id, mainAddress):
             isFrench = True
     return isFrench
 
-def get_orga_data():
-    data = orga_with_ed()
+def get_orga_list():
+    url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations-v2.jsonl.gz'
+    df = pd.read_json(url, lines=True)
+    df = df[~df.id.isin(EXCLUDED_ID)]
+    data = df.to_dict(orient='records')
+    return data
+
+def get_orga_map():
+    data = get_orga_list()
     orga_map = {}
     for elt in data:
         res = {}
-        #for e in ['id', 'kind', 'label', 'acronym', 'nature', 'status', 'isFrench', 'address']:
         for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']:
             if elt.get(e):
                 res[e] = elt[e]
@@ -170,13 +170,15 @@ def get_link_orga_projects():
     map_orga_proj = {}
     for proj in data:
         proj_id = proj['id']
-        for part in proj.get('participants'):
-            if part.get('structure'):
-                orga_id = part['structure']
-                if orga_id not in map_orga_proj:
-                    map_orga_proj[orga_id] = []
-                current_proj = proj_map[proj_id]
-                map_orga_proj[orga_id].append(current_proj)
+        if isinstance(proj.get('participants'), list):
+            for part in proj.get('participants'):
+                if isinstance(part, dict):
+                    if part.get('structure'):
+                        orga_id = part['structure']
+                        if orga_id not in map_orga_proj:
+                            map_orga_proj[orga_id] = []
+                        current_proj = proj_map[proj_id]
+                        map_orga_proj[orga_id].append(current_proj)
     return map_orga_proj
 
 def get_project_from_orga(map_orga_proj, orga_id):

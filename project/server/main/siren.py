@@ -6,6 +6,7 @@ from io import BytesIO
 from pyproj import Transformer
 from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
+from project.server.main.utils import EXCLUDED_ID
 
 logger = get_logger(__name__)
 
@@ -112,9 +113,14 @@ def format_siren(siren_list, siret_list, existing_siren):
     all_et = get_lat_lon(all_et)
     all_et = pd.merge(all_et, df_ul_filtered, on='siren')
     sirene_formatted = []
+    known_ids = []
     for e in all_et.to_dict(orient='records'):
         main_id = e['siren']
+        if main_id in EXCLUDED_ID:
+            continue
         if main_id in existing_siren_set:
+            continue
+        if main_id in known_ids:
             continue
         if e['etablissementSiege'] is False:
             main_id = e['siret']
@@ -145,4 +151,5 @@ def format_siren(siren_list, siret_list, existing_siren):
             address['gps'] = {'lat': e['lat'], 'lon': e['lon']}
         new_elt['address'] = [address]
         sirene_formatted.append(new_elt)
+        known_ids.append(main_id)
     return sirene_formatted

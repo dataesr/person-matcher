@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_data, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_correspondance 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_correspondance 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_affiliation
@@ -69,7 +69,7 @@ def load_patents(args):
     index_name = args.get('index_name')
     download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
     df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
-    df_orga = get_orga_data()
+    orga_map = get_orga_map()
     os.system('rm -rf /upw_data/scanr/patents_denormalized.jsonl')
     correspondance = get_correspondance()
 
@@ -136,7 +136,7 @@ def load_patents(args):
 
             new_affiliations = []
             for aff_id in get_structures_from_patent(p, correspondance):
-                denormalized_organization = get_orga(df_orga, aff_id)
+                denormalized_organization = get_orga(orga_map, aff_id)
                 new_affiliations.append(denormalized_organization)
             p['denormalized_structures'] = new_affiliations
 
