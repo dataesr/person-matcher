@@ -88,7 +88,7 @@ def format_ror(ror_ids, existing_rors):
             continue
         if new_elt['id'] in input_id_set_skip:
             continue
-        new_elt['externalIds'] = [{'id': e['id'], 'type': 'ror'}]
+        new_elt['externalIds'] = [{'id': e['id'].split('/')[-1], 'type': 'ror'}]
         for k in e['external_ids']:
             if isinstance(k.get('all'), list):
                 for g in k['all']:
@@ -96,8 +96,8 @@ def format_ror(ror_ids, existing_rors):
                     if new_k not in new_elt['externalIds']:
                         new_elt['externalIds'].append(new_k)
         # startDate
-        if isinstance(e.get('established'), int):
-            new_elt['startDate'] = str(e['established'])+'-01-01T00:00:00'
+        if isinstance(e.get('established'), float) and e['established']>1:
+            new_elt['startDate'] = str(int(e['established']))+'-01-01T00:00:00'
         if new_elt.get('startDate'):
             new_elt['creationYear'] = int(new_elt['startDate'][0:4])
         # status
@@ -119,8 +119,9 @@ def format_ror(ror_ids, existing_rors):
         else:
             new_elt['kind'] = ['Secteur public'] 
         #address
+        new_elt['isFrench'] = False
         address = {'main': True}
-        if len(e.get('locations', [])) > 1:
+        if len(e.get('locations', [])) > 0:
             if isinstance(e['locations'][0].get('geonames_details'), dict):
                 geo_details = e['locations'][0].get('geonames_details')
                 if 'name' in geo_details:

@@ -3,7 +3,7 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
 from project.server.main.utils import chunks, to_jsonl, to_json, save_to_mongo_publi_indexes
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_orga_list, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, compute_is_french 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_orga_list, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address 
 from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
@@ -141,10 +141,6 @@ def load_orga(args):
                 if isinstance(web_content, str) and len(web_content)>10:
                     new_p['web_content'] = web_content
             mainAddress = get_main_address(p.get('address'))
-            new_is_french = compute_is_french(current_id, mainAddress)
-            if new_is_french != p.get('isFrench'):
-                logger.debug(f"new isFrench for {current_id} {p['isFrench']} ==> {new_is_french}")
-                new_p['isFrench'] = new_is_french
             for f in ['parents', 'institutions', 'relations']:
                 if current_id in reverse_relation[f]:
                     new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]

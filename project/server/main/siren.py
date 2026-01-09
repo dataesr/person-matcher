@@ -142,6 +142,7 @@ def format_siren(siren_list, siret_list, existing_siren):
                 new_elt['label'] = {'default': e['denominationUsuelleEtablissement']}
         #address
         address = {'main': True}
+        new_elt['isFrench'] = True
         if isinstance(e.get('libelleCommuneEtablissement'), str):
             address['city'] = e['libelleCommuneEtablissement']
         full_add = f"{e['numeroVoieEtablissement']} {e['typeVoieEtablissement']} {e['libelleVoieEtablissement']}".strip()

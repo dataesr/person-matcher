@@ -193,6 +193,8 @@ def format_paysage(paysage_ids, sirens):
             address['gps'] = {'lat': lat, 'lon': lon}
         if e.get('iso3') == 'FRA':
             new_elt['isFrench'] = True
+        else:
+            new_elt['isFrench'] = False
         new_elt['address'] = [address]
         if e.get('websites'):
             new_elt['links'] = e['websites']

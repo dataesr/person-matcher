@@ -80,7 +80,7 @@ def get_default_name(e):
             return e[f]
     return None
 
-def compute_is_french(elt_id, mainAddress):
+def compute_is_french_deprecated(elt_id, mainAddress):
     isFrench = True
     if 'grid' in elt_id or 'ror' in elt_id:
         isFrench = False

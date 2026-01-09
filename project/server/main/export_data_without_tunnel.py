@@ -107,6 +107,7 @@ def dump_rnsr_data(nb_per_page=500, uai2siren={}):
             logger.debug(f'error with {url}, skip that page')
     current_list2=[]
     for elem in current_list:
+        elem['isFrench'] = True
         if 'id' in elem:
             elem['id'] = elem['id'][0:450]
             if len(elem['id'])>450:
