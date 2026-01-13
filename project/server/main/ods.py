@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+from project.server.main.utils import get_main_id
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -12,7 +13,7 @@ def get_ods_data(key):
     current_df = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/{key}/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
     return current_df
 
-def get_agreements():
+def get_agreements(corresp):
     agreements_dict = {}
     for f in ['organismes-prives-agrees-credit-dimpot-innovation-cii',
               'fr-esr-cico-organismes-publics-agrees-ci-collaboration-de-recherche',
@@ -23,24 +24,26 @@ def get_agreements():
         for row in current_df.itertuples():
             if row.siren==row.siren:
                 siren = str(int(row.siren))
-                if siren not in agreements_dict:
-                    agreements_dict[siren] = []
-                agreements_dict[siren].append({'type': row.dispositif,
+                main_id = get_main_id(siren, corresp)
+                if main_id not in agreements_dict:
+                    agreements_dict[main_id] = []
+                agreements_dict[main_id].append({'type': row.dispositif,
                                               'start': int(row.debut), 'end':int(row.fin),
                                                'years': [int(y) for y in row.annees.split(';')],
                                              'label': row.type_lib})
     return agreements_dict
 
-def get_awards():
+def get_awards(corresp):
     awards_dict = {}
     df_ilab = get_ods_data('fr-esr-laureats-concours-national-i-lab')
 
     for row in df_ilab.itertuples():
         if row.ndeg_siren == row.ndeg_siren:
             siren = str(int(row.ndeg_siren))
-            if siren not in awards_dict:
-                awards_dict[siren] = []
-            awards_dict[siren].append({
+            main_id = get_main_id(siren, corresp)
+            if main_id not in awards_dict:
+                awards_dict[main_id] = []
+            awards_dict[main_id].append({
                 'label': 'Lauréats I-LAB',
                 'year': int(row.annee_de_concours),
                 'summary': row.resume,
@@ -61,9 +64,10 @@ def get_awards():
         except:
             logger.debug(f'prix_annee parsing failed for {row.prix_annee}')
         for current_id in current_ids:
-            if current_id not in awards_dict:
-               awards_dict[current_id] = []
-            awards_dict[current_id].append({
+            main_id = get_main_id(current_id, corresp)
+            if main_id not in awards_dict:
+               awards_dict[main_id] = []
+            awards_dict[main_id].append({
                 'label': row.prix_libelle,
                 'year': year
             })

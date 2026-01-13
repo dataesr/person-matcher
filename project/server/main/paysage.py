@@ -40,7 +40,10 @@ def dump_paysage_data():
         current_paysage = e['id_structure_paysage']
         if current_paysage not in web_map:
             web_map[current_paysage] = []
-        web_map[current_paysage].append({'url': e['url'], 'type': e['type']})
+        if e['type'] in ['website', 'hceres', 'Hal', 'BSO']:
+            web_elt = {'url': e['url'], 'type': e['type']}
+            if web_elt not in web_map[current_paysage]:
+                web_map[current_paysage].append(web_elt)
     data = []
     for e in df_paysage_struct.to_dict(orient='records'):
         current_paysage = e['id']
@@ -105,8 +108,10 @@ def get_uai2siren():
     return uai2siren
 
 def format_paysage(paysage_ids, sirens):
-    input_id_set = set(paysage_ids)
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
+    cat_to_keep = ['Université', 'Entreprise', 'Start-Up', 'École doctorale', "École d'ingénieurs", "Infrastructure de recherche", "École de commerce et de management", "Organisme de recherche", "Communauté d'universités et établissements", "Grand établissement", "Centre de lutte contre le cancer", "Institut hospitalo-universitaire"]
+    extra_ids_to_extract = df_paysage[df_paysage.category_usualnamefr.isin(cat_to_keep)].id.tolist()
+    input_id_set = set(paysage_ids + extra_ids_to_extract)
     paysage_formatted = []
     for e in df_paysage.to_dict(orient='records'):
         new_elt = {'id': e['id']}
@@ -191,10 +196,9 @@ def format_paysage(paysage_ids, sirens):
             lat = e['gps'].split(',')[0]
             lon = e['gps'].split(',')[1]
             address['gps'] = {'lat': lat, 'lon': lon}
+        new_elt['isFrench'] = False
         if e.get('iso3') == 'FRA':
             new_elt['isFrench'] = True
-        else:
-            new_elt['isFrench'] = False
         new_elt['address'] = [address]
         if e.get('websites'):
             new_elt['links'] = e['websites']

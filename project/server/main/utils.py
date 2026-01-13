@@ -11,6 +11,12 @@ logger = get_logger(__name__)
     
 EXCLUDED_ID = ['881000251']
 
+def get_main_id(current_id, correspondance):
+    if current_id in correspondance:
+        for c in correspondance[current_id]:
+            if c.get('main_id'):
+                return c['main_id']
+    return current_id
 
 def identifier_type(identifiant: str):
     """

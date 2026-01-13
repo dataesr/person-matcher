@@ -99,7 +99,7 @@ def format_ror(ror_ids, existing_rors):
         if isinstance(e.get('established'), float) and e['established']>1:
             new_elt['startDate'] = str(int(e['established']))+'-01-01T00:00:00'
         if new_elt.get('startDate'):
-            new_elt['creationYear'] = int(new_elt['startDate'][0:4])
+            new_elt['creationYear'] = e['established']
         # status
         if e.get('status')=='active':
             new_elt['status']='active'
@@ -112,7 +112,8 @@ def format_ror(ror_ids, existing_rors):
             if 'ror_display' in n.get('types', []):
                 new_elt['label']['default'] = n['value']
             if 'label' in n.get('types', []) and 'lang' in n:
-                new_elt['label'][n['lang']] = n['value']
+                if n['lang'] in ['fr', 'en']:
+                    new_elt['label'][n['lang']] = n['value']
         # kind
         if 'company' in e.get('types', []):
             new_elt['kind'] = ['Secteur privé'] 

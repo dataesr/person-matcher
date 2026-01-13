@@ -66,6 +66,8 @@ def get_publications_from_ids(publication_ids):
     cursor = mycoll.find({ 'id' : { '$in': publication_ids } }).limit(LIMIT_GET_PUBLICATIONS_AUTHORS)
     for r in cursor:
         del r['_id']
+        if isinstance(r.get('title'), dict):
+            r['title'] = {lang: val for lang, val in r['title'].items() if lang in ['fr', 'en', 'default']}
         res.append(r)
     cursor.close()
     myclient.close()

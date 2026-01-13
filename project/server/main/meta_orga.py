@@ -63,11 +63,11 @@ def get_lists(uai2siren, grid2ror):
                         logger.debug(f'inst from rnsr {inst}')
 
     #awards
-    awards = get_awards()
+    awards = get_awards(corresp = {}) # with no correspondance, siren are returned
     sirens += [k for k in awards if len(k)==9]
     
     #agreements
-    agreements = get_agreements()
+    agreements = get_agreements(corresp = {})
     sirens += [k for k in agreements if len(k)==9]
 
     # projects
@@ -145,12 +145,12 @@ def get_meta_orga():
     logger.debug(f'{len(ror_data)} elts from ror')
     full_data += ror_data
 
-    # ed
-    ed_map = build_ed_map()
-    ed_data = list(ed_map.values())
-    to_jsonl(ed_data, '/upw_data/scanr/orga_ref/ed_data_formatted.jsonl')
-    logger.debug(f'{len(ed_data)} elts from ed')
-    full_data+= ed_data
+    # ed (already in paysage)
+    #ed_map = build_ed_map()
+    #ed_data = list(ed_map.values())
+    #to_jsonl(ed_data, '/upw_data/scanr/orga_ref/ed_data_formatted.jsonl')
+    #logger.debug(f'{len(ed_data)} elts from ed')
+    #full_data+= ed_data
 
     for org in full_data:
         for f in ['institutions', 'parents', 'leaders']:

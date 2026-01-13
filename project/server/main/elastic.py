@@ -156,6 +156,11 @@ def reset_index_scanr(index: str) -> None:
                 'type': 'text',
                 'analyzer': 'heavy',
             }
+    
+    for f in ['isFrench']: 
+        mappings['properties'][f] = { 
+                'type': 'boolean'
+            }
 
     dynamic_match = None
 

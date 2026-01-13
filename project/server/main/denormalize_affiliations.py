@@ -3,7 +3,7 @@ import requests
 from project.server.main.export_data_without_tunnel import dump_rnsr_data
 from project.server.main.ror import dump_ror_data
 from project.server.main.paysage import dump_paysage_data
-from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID
+from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id
 from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
 
@@ -42,13 +42,6 @@ def get_correspondance():
                                 correspondance[current_id].append(elt)
     logger.debug(f'{len(correspondance)} ids loaded with equivalent ids')
     return correspondance
-
-def get_main_id(current_id, correspondance):
-    if current_id in correspondance:
-        for c in correspondance[current_id]:
-            if c.get('main_id'):
-                return c['main_id']
-    return None
 
 def get_main_address(address):
     main_add = None
@@ -108,7 +101,7 @@ def get_orga_map():
                 if isinstance(res['mainAddress'], dict):
                     if isinstance(res['mainAddress'].get('postcode'), str):
                         res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
-        res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
+        #res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
         #if res['isFrench']:
         #    try:
         #        assert(res.get('mainAddress', {}).get('country', '') == 'France')

@@ -1,5 +1,5 @@
 from itertools import combinations
-from project.server.main.denormalize_affiliations import get_main_id
+from project.server.main.utils import get_main_id
 
 NB_MAX_CO_ELEMENTS = 20
 

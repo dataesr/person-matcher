@@ -1,9 +1,9 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, save_to_mongo_publi_indexes
+from project.server.main.utils import chunks, to_jsonl, to_json, save_to_mongo_publi_indexes, get_main_id
 from project.server.main.s3 import upload_object
-from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_orga_list, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address 
+from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_orga_list, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga, get_main_address, get_correspondance
 from project.server.main.patents import get_patents_orga_dict, get_patent_from_orga
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
 from project.server.main.elastic import reset_index_scanr, refresh_index
@@ -59,7 +59,7 @@ def get_html_from_crawler(current_id, get_zip):
             all_html+=' '+make_clean_html(current_html)
     return all_html
 
-def compute_reverse_relations(data):
+def compute_reverse_relations(data, corresp):
     reverse_relation_fields = ['parents', 'institutions', 'relations', 'predecessors']
     reverse_relation={}
     for f in reverse_relation_fields:
@@ -70,7 +70,7 @@ def compute_reverse_relations(data):
         for f in reverse_relation_fields:
             if isinstance(e.get(f), list) and e[f]:
                 for reversed_elt in e[f]:
-                    reversed_elt_id = reversed_elt.get('structure')
+                    reversed_elt_id = get_main_id(reversed_elt.get('structure'), corresp)
                     if reversed_elt_id:
                         if reversed_elt_id not in reverse_relation[f]:
                             reverse_relation[f][reversed_elt_id] = []
@@ -118,11 +118,12 @@ def load_orga(args):
         save_to_mongo_publi_indexes()
         orga_map = get_orga_map()
         orga = get_orga_list()
-        reverse_relation = compute_reverse_relations(orga)
+        corresp = get_correspondance()
+        reverse_relation = compute_reverse_relations(orga, corresp)
         map_proj_orga = get_link_orga_projects()
         map_patent_orga = get_patents_orga_dict()
-        map_agreements = get_agreements()
-        map_awards = get_awards()
+        map_agreements = get_agreements(corresp)
+        map_awards = get_awards(corresp)
 
         url_ai_descr = 'https://storage.gra.cloud.ovh.net/v1/AUTH_32c5d10cb0fe4519b957064a111717e3/misc/scanr_organizations_mistral_descriptions.json'
         df_ai_description = pd.read_json(url_ai_descr, orient="index")
