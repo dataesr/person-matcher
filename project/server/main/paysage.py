@@ -159,11 +159,14 @@ def get_main_id_paysage(current_id, corresp):
             "École d'ingénieurs",  "École de commerce et de management", "École nationale supérieure d'ingénieurs",
             "Institut d'étude politique",
             "Centre de lutte contre le cancer", "Institut hospitalo-universitaire", "Centre hospitalier",
-            "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP"]:
+            "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP", 
+            "Établissement d'enseignement supérieur étranger", "Institution étrangère active en matière de recherche et d'innovation"]:
         candidates = [k for k in corresp[current_id] if k.get('category_usualnamefr')==cat]
         candidates_filt = get_main_candidate(candidates)
         if candidates_filt:
             return candidates_filt['main_id']
+    if identifier_type(current_id) in ['ror']:
+        return current_id
     logger.debug('no main id for :')
     logger.debug(current_id)
     logger.debug(corresp[current_id])
@@ -202,6 +205,7 @@ def format_paysage(paysage_ids, sirens):
             "Institut d'étude politique",
             "Centre de lutte contre le cancer", "Institut hospitalo-universitaire", "Centre hospitalier",
             "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP",
+            "Établissement d'enseignement supérieur étranger", "Institution étrangère active en matière de recherche et d'innovation",
             'Entreprise', 'Start-Up', 
             'École doctorale', "Infrastructure de recherche"]
     extra_ids_to_extract = df_paysage[df_paysage.category_usualnamefr.isin(cat_to_keep)].id.tolist()
@@ -284,6 +288,8 @@ def format_paysage(paysage_ids, sirens):
         for f in ['country', 'city', 'address', 'iso3']:
             if isinstance(e.get(f), str):
                 address[f] = e[f]
+        if isinstance(e.get('postalcode'), str):
+            address['postcode'] = e['postalcode']
         if address.get('city') is None and isinstance(e.get('locality'), str):
             address['city'] = e['locality']
         if isinstance(e.get('gps'), str):

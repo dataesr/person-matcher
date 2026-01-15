@@ -8,6 +8,7 @@ from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, 
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_project, get_domains_from_publications
 from project.server.main.export_data_without_tunnel import dump_from_http
+from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage
 
 import pysftp
 import pickle
@@ -68,6 +69,7 @@ def load_projects(args):
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         os.system('rm -rf /upw_data/scanr/participations_denormalized.jsonl')
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
+        corresp_paysage = get_correspondance_paysage()
         for ix, p in enumerate(projects):
             # rename with priorities, domains will be used later down
             if (isinstance(p.get('domains'), list)) and not (isinstance(p.get('priorities'), list)):
@@ -93,16 +95,17 @@ def load_projects(args):
                 part_id = part.get('structure')
                 if part_id:
                     part['participant_id'] = part.pop('structure')
-                if participant_name.lower() in PARTICIPANTS_CODED:
+                if part_id is None and participant_name.lower() in PARTICIPANTS_CODED:
                     for coded_id in ['rnsr', 'paysage', 'siret', 'siren', 'ror', 'grid']:
                         if PARTICIPANTS_CODED[participant_name.lower()].get(coded_id):
                             part_id = PARTICIPANTS_CODED[participant_name.lower()].get(coded_id)
-                            denormalized_organization = get_orga(orga_map, part_id)
-                            if 'label' in denormalized_organization:
-                                logger.debug(f'got {part_id} from hand coded table for {participant_name}')
-                                break
+                            #denormalized_organization = get_orga(orga_map, part_id)
+                            #if 'label' in denormalized_organization:
+                            #    logger.debug(f'got {part_id} from hand coded table for {participant_name}')
+                            #    break
                 if part_id and (not part_id.startswith('pic')):
                     is_identified=True
+                    part_id = get_main_id_paysage(part_id, corresp_paysage)
                     denormalized_organization = get_orga(orga_map, part_id)
                     part['structure'] = denormalized_organization
                     denormalized_affiliations.append(denormalized_organization)
@@ -236,7 +239,7 @@ def get_participations(project, orga_map):
             if isinstance(address.get('gps'), dict):
                 new_address['gps'] = address['gps']
                 if address['gps'].get('lat') and address['gps'].get('lon'):
-                    if participant_id_name_default not in part:
+                    if 'participant_id_name_default' not in part:
                         logger.debug('NO ID NAME ??? for ')
                         logger.debug(part)
                     new_address['gps_id_name'] = str(address['gps']['lat'])+'_'+str(address['gps']['lon'])+'_'+part['participant_id']+'_'+part.get('participant_id_name_default', 'noname')

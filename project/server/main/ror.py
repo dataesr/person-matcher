@@ -99,7 +99,7 @@ def format_ror(ror_ids, existing_rors):
                         new_elt['externalIds'].append(new_k)
         # startDate
         if isinstance(e.get('established'), float) and e['established']>1:
-            new_elt['startDate'] = str(int(e['established']))+'-01-01T00:00:00'
+            new_elt['startDate'] = str(min(1000, int(e['established'])))+'-01-01T00:00:00' # es refuses date before 1000
         if new_elt.get('startDate'):
             new_elt['creationYear'] = e['established']
         # status

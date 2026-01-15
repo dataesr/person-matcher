@@ -149,7 +149,7 @@ def format_siren(siren_list, siret_list, existing_siren=[]):
                 new_elt['label'] = {'default': e[field]}
         if e['etablissementSiege'] is False:
             for field in ['denominationUsuelleEtablissement', 'enseigne1Etablissement', 'enseigne2Etablissement', 'enseigne3Etablissement']:
-                if isinstance(e.get('denominationUsuelleEtablissement'), str):
+                if isinstance(e.get(field), str):
                     new_elt['label'] = {'default': e[field]}
         try:
             assert(isinstance(new_elt['label']['default'], str))
