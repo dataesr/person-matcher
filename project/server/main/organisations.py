@@ -156,11 +156,11 @@ def load_orga(args):
                 if ext.get('type') == 'rnsr':
                     reasons_scanr.append('rnsr')
             all_ids = list(set(all_ids))
-            #publications_data = get_publications_for_affiliation(all_ids)
-            #TODO 
-            publications_data = []
-            new_p['publications'] = publications_data['publications']
-            new_p['publicationsCount'] = publications_data['count']
+            publications_data = {}
+            if args.get('publi'):
+                publications_data = get_publications_for_affiliation(all_ids)
+            new_p['publications'] = publications_data.get('publications', [])
+            new_p['publicationsCount'] = publications_data.get('count', 0)
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])
             new_p['projectsCount'] = len(new_p['projects'])
             new_p['patents'] = get_patent_from_orga(map_patent_orga, p['id'])
@@ -183,8 +183,8 @@ def load_orga(args):
                     if isinstance(e, dict) and isinstance(e.get('structure'), str):
                         nb_relationships += 1
                         reasons_scanr.append('relationship')
-                        current_id = e.get('structure')
-                        new_p[f][ix]['denormalized'] = get_orga(orga_map, current_id)
+                        internal_id = e.get('structure')
+                        new_p[f][ix]['denormalized'] = get_orga(orga_map, internal_id)
                 if f not in ['predecessors']:
                     new_p[f] = [org for org in new_p[f] if org.get('denormalized', {}).get('status', '') == 'active']
             if new_p.get('spinoffs'):

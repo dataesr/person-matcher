@@ -20,7 +20,12 @@ UNITE_LEGALE_HISTO_URL = "https://www.data.gouv.fr/api/1/datasets/r/1b9290ed-d0b
 # Colonnes utiles après correction
 UL_COLS = [
     "siren",
+    "nomUniteLegale",
+    "nomUsageUniteLegale",
     "denominationUniteLegale",
+    "denominationUsuelle1UniteLegale",
+    "denominationUsuelle2UniteLegale",
+    "denominationUsuelle3UniteLegale",
     "categorieJuridiqueUniteLegale",
     "dateDebut",
     "dateCreationUniteLegale",
@@ -34,6 +39,9 @@ ET_COLS = [
     "siren",
     "etablissementSiege",
     "denominationUsuelleEtablissement",
+    "enseigne1Etablissement",
+    "enseigne2Etablissement",
+    "enseigne3Etablissement",
     "dateDebut",
     "numeroVoieEtablissement",
     "typeVoieEtablissement",
@@ -102,6 +110,7 @@ def get_lat_lon(df):
     return df
 
 def format_siren(siren_list, siret_list, existing_siren=[]):
+    logger.debug('formatting siren data')
     existing_siren_set = set(existing_siren)
     sirens = siren_list + [a[0:9] for a in siret_list]
     sirens = list(set(sirens))
@@ -135,10 +144,18 @@ def format_siren(siren_list, siret_list, existing_siren=[]):
         # status
         new_elt['status']='active'
         # name
-        if isinstance(e.get('denominationUniteLegale'), str):
-            new_elt['label'] = {'default': e['denominationUniteLegale']}
-            if e['etablissementSiege'] is False:
-                new_elt['label'] = {'default': e['denominationUsuelleEtablissement']}
+        for field in ['denominationUniteLegale', 'denominationUsuelle1UniteLegale', 'denominationUsuelle2UniteLegale', 'denominationUsuelle3UniteLegale', 'nomUniteLegale']:
+            if isinstance(e.get(field), str):
+                new_elt['label'] = {'default': e[field]}
+        if e['etablissementSiege'] is False:
+            for field in ['denominationUsuelleEtablissement', 'enseigne1Etablissement', 'enseigne2Etablissement', 'enseigne3Etablissement']:
+                if isinstance(e.get('denominationUsuelleEtablissement'), str):
+                    new_elt['label'] = {'default': e[field]}
+        try:
+            assert(isinstance(new_elt['label']['default'], str))
+        except:
+            logger.debug(f"SIREN no name for {e}") 
+            assert(isinstance(new_elt['label']['default'], str))
         #address
         address = {'main': True}
         new_elt['isFrench'] = True

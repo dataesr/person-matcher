@@ -190,7 +190,7 @@ def get_participations(project, orga_map):
             if isinstance(p.get('structure'), dict):
                 new_part = {}
                 # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
-                for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding']:
+                for f in ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding']:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
                 if new_part and new_part.get('participant_id'):
@@ -201,7 +201,7 @@ def get_participations(project, orga_map):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
                             new_part = {}
                             current_part = get_orga(orga_map, inst['structure'])
-                            for f in ['id', 'id_name', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench']:
+                            for f in ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench']:
                                 if f in current_part:
                                     new_part[f'participant_{f}'] = current_part[f]
                             if new_part and new_part.get('participant_id'):
@@ -236,7 +236,10 @@ def get_participations(project, orga_map):
             if isinstance(address.get('gps'), dict):
                 new_address['gps'] = address['gps']
                 if address['gps'].get('lat') and address['gps'].get('lon'):
-                    new_address['gps_id_name'] = str(address['gps']['lat'])+'_'+str(address['gps']['lon'])+'_'+part['participant_id']+'_'+part['participant_id_name']
+                    if participant_id_name_default not in part:
+                        logger.debug('NO ID NAME ??? for ')
+                        logger.debug(part)
+                    new_address['gps_id_name'] = str(address['gps']['lat'])+'_'+str(address['gps']['lon'])+'_'+part['participant_id']+'_'+part.get('participant_id_name_default', 'noname')
             for f in ['address', 'postcode', 'city', 'country', 'region']:
                 if isinstance(address.get(f), str):
                     new_address[f] = address[f]

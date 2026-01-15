@@ -9,6 +9,7 @@ from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
+from project.server.main.utils import identifier_type
 from project.server.main.s3 import upload_object
 from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, build_ed_map, identifier_type, remove_duplicates
 
@@ -50,7 +51,7 @@ def get_lists(grid2ror):
 
     # data from rnsr
     logger.debug('from labs institutions')
-    df = pd.read_json('/upw_data/scanr/orga_ref/rnsr_formatted.jsonl.gz', lines=True)
+    df = pd.read_json('/upw_data/scanr/orga_ref/rnsr_formatted.jsonl', lines=True)
     for e in df.to_dict(orient='records'):
         if isinstance(e.get('institutions'), list):
             for inst in e['institutions']:
@@ -61,6 +62,8 @@ def get_lists(grid2ror):
                         sirens.append(inst['structure'])
                     elif len(inst['structure']) == 14:
                         sirets.append(inst['structure'])
+                    elif identifier_type(inst['structure'])=='rnsr':
+                        continue
                     else:
                         logger.debug(f'inst from rnsr {inst}')
 

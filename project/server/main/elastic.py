@@ -162,6 +162,12 @@ def reset_index_scanr(index: str) -> None:
                 'type': 'boolean'
             }
 
+    for f in ['startDate']: 
+        mappings['properties'][f] = { 
+        "type": "date",
+        "format": "strict_date_optional_time||epoch_millis||yyyy-MM-dd'T'HH:mm:ss"
+      }
+
     dynamic_match = None
 
     if dynamic_match:

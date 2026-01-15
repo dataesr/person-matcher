@@ -21,6 +21,7 @@ def get_paysage_data():
     return df_paysage_struct, df_siren, df_ror
 
 def dump_paysage_data():
+    logger.debug('### DUMP Paysage data')
     df_paysage_id = get_ods_data('fr-esr-paysage_structures_identifiants')
     df_paysage_struct = get_ods_data('structures-de-paysage-v2')
     df_web = get_ods_data('fr-esr-paysage_structures_websites')
@@ -31,7 +32,7 @@ def dump_paysage_data():
         if current_paysage not in id_map:
             id_map[current_paysage] = []
         new_elt, new_elt_siren = {}, {}
-        if e['id_type'] in ['ror', 'rnsr', 'siret', 'uai', 'ed']:
+        if e['id_type'] in ['ror', 'rnsr', 'siret', 'uai', 'ed', 'grid']:
             for f in ['id_value', 'id_type', 'active', 'id_startdate', 'id_enddate']:
                 if e.get(f):
                     new_elt[f] = e[f]
@@ -136,7 +137,7 @@ def get_main_candidate(candidates):
     no_camp = [c for c in new_candidates2 if 'campus' not in c.get('usualname').lower()]
     if len(no_camp)==1:
         return no_camp[0]
-    custom = [c for c in new_candidates2 if c.get('usualname').lower()=='cesi']
+    custom = [c for c in new_candidates2 if c.get('usualname').lower()in ['cesi', 'centrale lyon']]
     if len(custom)==1:
         return custom[0]
     return None
@@ -190,6 +191,7 @@ def get_correspondance_paysage():
     return corresp
 
 def format_paysage(paysage_ids, sirens):
+    logger.debug('formatting paysage data')
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     cat_to_keep = ["Grand établissement relevant d'un autre département ministériel", "Grand établissement", "Communauté d'universités et établissements", 
             "Établissement public expérimental",

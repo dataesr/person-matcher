@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 DATAESR_URL = os.getenv('DATAESR_URL')
 
 def dump_rnsr_data(nb_per_page=500):
+    logger.debug('### DUMP RNSR data')
     db = 'organizations'
     collection = 'scanr'
     url_base = f'{DATAESR_URL}/{db}/{collection}?where=' + '{"externalIds.type":"rnsr"}'
@@ -61,6 +62,7 @@ def dump_rnsr_data(nb_per_page=500):
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr.jsonl.gz', destination=f'production/rnsr.jsonl.gz')
 
 def format_rnsr():
+    logger.debug('formatting RNSR data')
     df = pd.read_json(f'/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True)
     corresp = get_correspondance_paysage()
     data = []

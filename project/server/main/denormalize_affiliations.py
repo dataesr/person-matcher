@@ -90,7 +90,7 @@ def get_orga_map():
     orga_map = {}
     for elt in data:
         res = {}
-        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']:
+        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench']:
             if elt.get(e):
                 res[e] = elt[e]
             if isinstance(elt.get('address'), list):
@@ -127,6 +127,9 @@ def get_orga_map():
                 res['id_name_default'] = f"{elt['id']}###{fr_label}"
             if en_label:
                 res['id_name_default'] = f"{elt['id']}###{en_label}"
+        else:
+            logger.debug('No Label ???')
+            logger.debug(res)
         orga_map[elt['id']] = res
     return orga_map
 

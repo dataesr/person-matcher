@@ -43,6 +43,7 @@ def get_last_ror_dump_url():
 
 @retry(delay=200, tries=3)
 def dump_ror_data() -> list:
+    logger.debug('### DUMP ROR data')
     ROR_DUMP_URL = get_last_ror_dump_url()
     logger.debug(f'download ROR from {ROR_DUMP_URL}')
     ror_downloaded_file = 'ror_data_dump.zip'
@@ -78,6 +79,7 @@ def dump_ror_data() -> list:
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/ror.jsonl.gz', destination=f'production/ror.jsonl.gz')
 
 def format_ror(ror_ids, existing_rors):
+    logger.debug('formatting ror data')
     input_id_set_keep = set([r.lower().strip() for r in ror_ids])
     input_id_set_skip = set([r.lower().strip() for r in existing_rors])
     df_ror = pd.read_json('/upw_data/scanr/orga_ref/ror.jsonl', lines=True)

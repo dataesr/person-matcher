@@ -71,16 +71,23 @@ def get_region(code_postal):
         '972': 'Martinique',
         '973': 'Guyane',
         '974': 'La Réunion',
+        '975': 'Saint-Pierre-et-Miquelon',
         '976': 'Mayotte',
-
-        '988': 'Nouvelle Calédonie' #TODO
+        '977': 'Saint-Barthélemy',
+        '978': 'Saint-Martin',
+        '98': 'COM et territoires d’outre-mer',
+        '984': 'Terres australes et antarctiques françaises',
+        '986': 'Wallis-et-Futuna',
+        '987': 'Polynésie française',
+        '988': 'Nouvelle-Calédonie',
+        '989': 'Île de Clipperton'
     }
     
     # Convertir en string si nécessaire
     code_postal = str(code_postal)
     
     # Pour les DROM, vérifier d'abord les 3 premiers chiffres
-    if code_postal.startswith('97'):
+    if code_postal.startswith('97') or code_postal.startswith('98'):
         dept_3 = code_postal[:3]
         if dept_3 in dept_vers_region:
             return dept_vers_region[dept_3]
