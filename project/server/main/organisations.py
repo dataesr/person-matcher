@@ -156,7 +156,9 @@ def load_orga(args):
                 if ext.get('type') == 'rnsr':
                     reasons_scanr.append('rnsr')
             all_ids = list(set(all_ids))
-            publications_data = get_publications_for_affiliation(all_ids)
+            #publications_data = get_publications_for_affiliation(all_ids)
+            #TODO 
+            publications_data = []
             new_p['publications'] = publications_data['publications']
             new_p['publicationsCount'] = publications_data['count']
             new_p['projects'] = get_project_from_orga(map_proj_orga, p['id'])

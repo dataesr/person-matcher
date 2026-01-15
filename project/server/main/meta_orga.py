@@ -2,9 +2,9 @@ import pandas as pd
 import requests
 import os
 import pickle
-from project.server.main.export_data_without_tunnel import dump_rnsr_data
+from project.server.main.rnsr import dump_rnsr_data, format_rnsr
 from project.server.main.siren import format_siren
-from project.server.main.paysage import format_paysage, dump_paysage_data, get_uai2siren
+from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage
 from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
 
-def get_lists(uai2siren, grid2ror):
+def get_lists(grid2ror):
     logger.debug('getting list of ids to incorporate ...')
     logger.debug('from pcri projects')
     df_horizon_part = get_ods_data('fr-esr-horizon-projects-entities')
@@ -50,12 +50,14 @@ def get_lists(uai2siren, grid2ror):
 
     # data from rnsr
     logger.debug('from labs institutions')
-    df = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True)
+    df = pd.read_json('/upw_data/scanr/orga_ref/rnsr_formatted.jsonl.gz', lines=True)
     for e in df.to_dict(orient='records'):
         if isinstance(e.get('institutions'), list):
             for inst in e['institutions']:
                 if isinstance(inst.get('structure'), str):
-                    if len(inst['structure']) == 9:
+                    if len(inst['structure']) == 5:
+                        paysages.append(inst['structure'])
+                    elif len(inst['structure']) == 9:
                         sirens.append(inst['structure'])
                     elif len(inst['structure']) == 14:
                         sirets.append(inst['structure'])
@@ -83,8 +85,6 @@ def get_lists(uai2siren, grid2ror):
                         sirets.append(p['structure'])
                     if id_type=='ror':
                         rors.append(p['structure'])
-                    if p['structure'] in uai2siren:
-                        sirens.append(uai2siren[p['structure']])
                     if p['structure'] in grid2ror:
                         rors.append(grid2ror[p['structure']])
 
@@ -104,23 +104,23 @@ def get_meta_orga():
     #paysage
     dump_paysage_data()
     dump_ror_data()
-    uai2siren = get_uai2siren()
-    dump_rnsr_data(500, uai2siren)
+    corresp_paysage = get_correspondance_paysage()
+    dump_rnsr_data(500)
 
     grid2ror = get_grid2ror()
 
     #rnsr
-    rnsr_data = pd.read_json('/upw_data/scanr/orga_ref/rnsr.jsonl.gz', lines=True).to_dict(orient='records')
+    rnsr_data = format_rnsr()
     logger.debug(f'{len(rnsr_data)} elts from rnsr')
     full_data += rnsr_data
         
-    lists = get_lists(uai2siren, grid2ror)
+    lists = get_lists(grid2ror)
         
     try:
         lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
         logger.debug('read pkl list')
     except:
-        lists = get_lists(uai2siren, grid2ror)
+        lists = get_lists(grid2ror)
     
     paysage_data = format_paysage(lists['paysage'], lists['siren'])
     to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')

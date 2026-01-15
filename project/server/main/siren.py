@@ -49,21 +49,24 @@ UL_HISTO_COLS = [
 
 # Fonction pour lire parquet depuis URL
 def read_parquet_from_url(url, columns=None):
-    print(f"Téléchargement depuis {url} ...")
+    logger.debug(f"Téléchargement depuis {url} ...")
     r = requests.get(url, stream=True)
     r.raise_for_status()
     return pd.read_parquet(BytesIO(r.content), columns=columns)
 
 def get_ul_histo():
     df_ul = read_parquet_from_url(UNITE_LEGALE_HISTO_URL, columns=UL_HISTO_COLS)
+    logger.debug('ok')
     return df_ul
 
 def get_etab():
     df_et = read_parquet_from_url(ETABLISSEMENT_URL, columns=ET_COLS)
+    logger.debug('ok')
     return df_et
   
 def get_ul():
     df_ul = read_parquet_from_url(UNITE_LEGALE_URL, columns=UL_COLS)
+    logger.debug('ok')
     return df_ul
 
 transformer = Transformer.from_crs(
@@ -98,7 +101,7 @@ def get_lat_lon(df):
 
     return df
 
-def format_siren(siren_list, siret_list, existing_siren):
+def format_siren(siren_list, siret_list, existing_siren=[]):
     existing_siren_set = set(existing_siren)
     sirens = siren_list + [a[0:9] for a in siret_list]
     sirens = list(set(sirens))
@@ -111,23 +114,19 @@ def format_siren(siren_list, siret_list, existing_siren):
 
     all_et = pd.concat([df_et_filtered_siege, df_et_filtered_not_siege])
     all_et = get_lat_lon(all_et)
+    logger.debug('merging siren / siret info')
     all_et = pd.merge(all_et, df_ul_filtered, on='siren')
     sirene_formatted = []
     known_ids = []
     for e in all_et.to_dict(orient='records'):
         main_id = e['siren']
-        if main_id in EXCLUDED_ID:
-            continue
-        if main_id in existing_siren_set:
-            continue
-        if main_id in known_ids:
-            continue
         if e['etablissementSiege'] is False:
             main_id = e['siret']
         new_elt = {'id': main_id}
+        for g in ['etablissementSiege']:
+            new_elt[g] = e[g]
         new_elt['externalIds'] = [{'id': e['siren'], 'type': 'siren'}]
-        if e['etablissementSiege'] is False:
-            new_elt['externalIds'].append({'id': e['siret'], 'type': 'siret'})
+        new_elt['externalIds'].append({'id': e['siret'], 'type': 'siret'})
         # startDate
         if isinstance(e.get('dateCreationUniteLegale'), datetime.date):
             new_elt['startDate'] = str(e['dateCreationUniteLegale'])+'T00:00:00'
@@ -151,6 +150,12 @@ def format_siren(siren_list, siret_list, existing_siren):
         if isinstance(e.get('lat'), float) and isinstance(e.get('lon'), float):
             address['gps'] = {'lat': e['lat'], 'lon': e['lon']}
         new_elt['address'] = [address]
+        if main_id in EXCLUDED_ID:
+            continue
+        if main_id in existing_siren_set:
+            continue
+        if main_id in known_ids:
+            continue
         sirene_formatted.append(new_elt)
         known_ids.append(main_id)
     return sirene_formatted

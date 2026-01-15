@@ -2,9 +2,12 @@ import requests
 import os
 import pandas as pd
 import json
+from itertools import combinations
+
 from project.server.main.ods import get_ods_data
-from project.server.main.utils import chunks, to_jsonl, to_json
+from project.server.main.utils import chunks, to_jsonl, to_json, identifier_type
 from project.server.main.s3 import upload_object
+from project.server.main.siren import format_siren
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,18 +25,23 @@ def dump_paysage_data():
     df_paysage_struct = get_ods_data('structures-de-paysage-v2')
     df_web = get_ods_data('fr-esr-paysage_structures_websites')
     id_map, web_map = {}, {}
+    sirens, sirets = [], []
     for e in df_paysage_id.to_dict(orient='records'):
         current_paysage = e['id_paysage']
         if current_paysage not in id_map:
             id_map[current_paysage] = []
         new_elt, new_elt_siren = {}, {}
-        if e['id_type'] in ['ror', 'rnsr', 'siret', 'uai']:
+        if e['id_type'] in ['ror', 'rnsr', 'siret', 'uai', 'ed']:
             for f in ['id_value', 'id_type', 'active', 'id_startdate', 'id_enddate']:
                 if e.get(f):
                     new_elt[f] = e[f]
-        if new_elt not in id_map[current_paysage]:
+                    if e['id_type'] == 'ed' and f=='id_value':
+                        new_elt[f] = 'ED' + str(e[f])
+        if new_elt and new_elt not in id_map[current_paysage]:
             id_map[current_paysage].append(new_elt)
             if e['id_type'] == 'siret':
+                sirets.append(e['id_value'])
+                sirens.append(e['id_value'][0:9])
                 new_elt_siren = {'id_type': 'siren', 'id_value': new_elt['id_value'][0:9]}    
                 id_map[current_paysage].append(new_elt_siren)
     for e in df_web.to_dict(orient='records'):
@@ -44,6 +52,18 @@ def dump_paysage_data():
             web_elt = {'url': e['url'], 'type': e['type']}
             if web_elt not in web_map[current_paysage]:
                 web_map[current_paysage].append(web_elt)
+    try:
+        siren_info = pd.read_json('/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl', lines=True).to_dict(orient='records')
+        logger.debug(f'{len(siren_info)} sirens info loaded')
+    except:
+        siren_info = format_siren(siren_list=sirens, siret_list=sirets, existing_siren=[])
+        logger.debug(f'{len(siren_info)} sirens info downloaded')
+        to_jsonl(siren_info, f'/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
+    siret_map = {}
+    for e in siren_info:
+        for k in e.get('externalIds', []):
+            if k.get('type')=='siret':
+                siret_map[k['id']] = e
     data = []
     for e in df_paysage_struct.to_dict(orient='records'):
         current_paysage = e['id']
@@ -51,6 +71,13 @@ def dump_paysage_data():
         if current_paysage in id_map:
             external_ids += id_map[current_paysage]
         e['external_ids'] = external_ids
+        for k in external_ids:
+            if k.get('id_type')=="siret":
+                current_siret = k['id_value']
+                if current_siret in siret_map:
+                    e['etablissementSiege'] = siret_map[current_siret]['etablissementSiege']
+                else:
+                    logger.debug(f'{current_siret} not in siret_map?')
         if current_paysage in web_map:
             e['websites'] = web_map[current_paysage]
         data.append(e)
@@ -91,25 +118,90 @@ def get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror):
         ans = get_status_from_paysage(paysage_id, df_paysage_struct)
     return ans
 
-def get_uai2siren():
-    uai2siren = {}
+def get_main_candidate(candidates):
+    if len(candidates)==1:
+        return candidates[0]
+    sieges = [c for c in candidates if c.get('etablissementSiege')==1.0]
+    if len(sieges)==1:
+        return sieges[0]
+    new_candidates1 = sieges
+    if len(sieges)==0:
+        new_candidates1 = candidates
+    actives = [c for c in new_candidates1 if c.get('structurestatus')=='active']
+    if len(actives)==1:
+        return actives[0]
+    new_candidates2 = actives
+    if len(new_candidates2)==0:
+        new_candidates2 = new_candidates1 
+    no_camp = [c for c in new_candidates2 if 'campus' not in c.get('usualname').lower()]
+    if len(no_camp)==1:
+        return no_camp[0]
+    custom = [c for c in new_candidates2 if c.get('usualname').lower()=='cesi']
+    if len(custom)==1:
+        return custom[0]
+    return None
+
+def get_main_id_paysage(current_id, corresp):
+    if identifier_type(current_id) in ['rnsr']:
+        return current_id
+    if current_id not in corresp:
+        #logger.debug(f"{current_id} not in corresp paysage !!")
+        return current_id
+    candidates = get_main_candidate(corresp[current_id])
+    if candidates:
+        return candidates['main_id']
+    for cat in ["Grand établissement relevant d'un autre département ministériel", "Grand établissement", "Communauté d'universités et établissements", 
+            "Établissement public expérimental",
+            'Université', "Organisme de recherche", 
+            "Institut national polytechnique", "Institut ou école extérieur aux universités",
+            "École normale supérieure", "Établissement d'enseignement supérieur privé d'intérêt général",
+            "École d'ingénieurs",  "École de commerce et de management", "École nationale supérieure d'ingénieurs",
+            "Institut d'étude politique",
+            "Centre de lutte contre le cancer", "Institut hospitalo-universitaire", "Centre hospitalier",
+            "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP"]:
+        candidates = [k for k in corresp[current_id] if k.get('category_usualnamefr')==cat]
+        candidates_filt = get_main_candidate(candidates)
+        if candidates_filt:
+            return candidates_filt['main_id']
+    logger.debug('no main id for :')
+    logger.debug(current_id)
+    logger.debug(corresp[current_id])
+    return current_id
+
+def get_correspondance_paysage():
+    corresp = {}
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     for e in df_paysage.to_dict(orient='records'):
-        siren, uai = None, None
+        main_id = e['id']
         for k in e['external_ids']:
+            k['main_id'] = main_id
+            for g in ['category_usualnamefr', 'structurestatus', 'usualname']:
+                if isinstance(e.get(g), str):
+                    k[g] = e[g]
+                if e.get('etablissementSiege') == e.get('etablissementSiege'):
+                    k['etablissementSiege'] = e.get('etablissementSiege')
             if isinstance(k.get('id_value'), str):
-                if k['id_type'].startswith('sire'):
-                    siren = k['id_value'][0:9]
-                if k['id_type'].startswith('uai'):
-                    uai = k['id_value']
-        if siren and uai:
-            uai2siren[uai]=siren
-    logger.debug(f'{len(uai2siren)} elts in uai2siren')
-    return uai2siren
+                current_id = k['id_value']
+                if current_id not in corresp:
+                    corresp[current_id] = []
+                if k not in corresp[current_id]:
+                    corresp[current_id].append(k)
+    logger.debug(f'{len(corresp)} elts from paysage')
+    return corresp
 
 def format_paysage(paysage_ids, sirens):
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
-    cat_to_keep = ['Université', 'Entreprise', 'Start-Up', 'École doctorale', "École d'ingénieurs", "Infrastructure de recherche", "École de commerce et de management", "Organisme de recherche", "Communauté d'universités et établissements", "Grand établissement", "Centre de lutte contre le cancer", "Institut hospitalo-universitaire"]
+    cat_to_keep = ["Grand établissement relevant d'un autre département ministériel", "Grand établissement", "Communauté d'universités et établissements", 
+            "Établissement public expérimental",
+            'Université', "Organisme de recherche", 
+            "Institut national polytechnique", "Institut ou école extérieur aux universités",
+            "École normale supérieure", "Établissement d'enseignement supérieur privé d'intérêt général",
+            "École d'ingénieurs",  "École de commerce et de management", "École nationale supérieure d'ingénieurs",
+            "Institut d'étude politique",
+            "Centre de lutte contre le cancer", "Institut hospitalo-universitaire", "Centre hospitalier",
+            "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP",
+            'Entreprise', 'Start-Up', 
+            'École doctorale', "Infrastructure de recherche"]
     extra_ids_to_extract = df_paysage[df_paysage.category_usualnamefr.isin(cat_to_keep)].id.tolist()
     input_id_set = set(paysage_ids + extra_ids_to_extract)
     paysage_formatted = []

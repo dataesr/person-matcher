@@ -1,8 +1,5 @@
 import pandas as pd
 import requests
-from project.server.main.export_data_without_tunnel import dump_rnsr_data
-from project.server.main.ror import dump_ror_data
-from project.server.main.paysage import dump_paysage_data
 from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id
 from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
@@ -124,6 +121,12 @@ def get_orga_map():
             if len(encoded_labels)==0 and default_label:
                 encoded_label = 'DEFAULT_' + default_label
             res['id_name'] = f"{elt['id']}###{encoded_label}"
+            if default_label:
+                res['id_name_default'] = f"{elt['id']}###{default_label}"
+            elif fr_label:
+                res['id_name_default'] = f"{elt['id']}###{fr_label}"
+            if en_label:
+                res['id_name_default'] = f"{elt['id']}###{en_label}"
         orga_map[elt['id']] = res
     return orga_map
 

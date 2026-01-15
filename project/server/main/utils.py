@@ -51,6 +51,15 @@ def identifier_type(identifiant: str):
     if re.fullmatch(r"[A-Za-z0-9]{10}", identifiant):
         return "rnsr"
 
+    if identifiant.startswith('ED'):
+        return 'ed'
+
+    if len(identifiant)==5:
+        return 'paysage'
+    
+    if len(identifiant)==8:
+        return 'uai'
+
     return None
 
 

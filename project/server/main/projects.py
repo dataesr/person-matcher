@@ -221,7 +221,7 @@ def get_participations(project, orga_map):
                 del part[f]
         part['participant_type'] = 'other'
         if 'participant_kind' in part:
-            if ('Structure de recherche' in part['participant_kind']) and (contient_lettre(part['participant_id'])):
+            if isinstance(part.get('participant_kind'), list) and ('Structure de recherche' in part['participant_kind']) and isinstance(part.get('participant_id'), str) and (contient_lettre(part['participant_id'])):
                 part['participant_type'] = 'laboratory'
             else:
                 part['participant_type'] = 'institution'

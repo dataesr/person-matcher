@@ -71,7 +71,9 @@ def get_region(code_postal):
         '972': 'Martinique',
         '973': 'Guyane',
         '974': 'La Réunion',
-        '976': 'Mayotte'
+        '976': 'Mayotte',
+
+        '988': 'Nouvelle Calédonie' #TODO
     }
     
     # Convertir en string si nécessaire
