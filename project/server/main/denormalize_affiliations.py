@@ -97,7 +97,8 @@ def get_orga_map():
                 res['mainAddress'] = get_main_address(elt['address'])
                 if isinstance(res['mainAddress'], dict):
                     if isinstance(res['mainAddress'].get('postcode'), str):
-                        res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
+                        if e.get('isFrench'):
+                            res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
         #res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
         #if res['isFrench']:
         #    try:
