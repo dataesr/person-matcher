@@ -73,7 +73,10 @@ def format_rnsr():
                     if isinstance(k, dict) and 'structure' in k:
                         #k['structure'] = get_main_id(k['structure'])
                         k['structure'] = get_main_id_paysage(k['structure'], corresp)
+                        if identifier_type(k['structure']) not in ['rnsr', 'paysage', 'ror']:
+                            logger.debug(f'tutelle identification to check {k}')
         data.append(e)
+    os.system('cd /upw_data/scanr/orga_ref/ && rm -rf rnsr_formatted.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr_formatted.jsonl')
     return data
         
