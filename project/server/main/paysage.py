@@ -2,7 +2,9 @@ import requests
 import os
 import pandas as pd
 import json
-from itertools import combinations
+import gzip
+import json
+import requests
 
 from project.server.main.ods import get_ods_data
 from project.server.main.utils import chunks, to_jsonl, to_json, identifier_type
@@ -11,6 +13,21 @@ from project.server.main.siren import format_siren
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
+PAYSAGE_URL = os.getenv('PAYSAGE_URL')
+PAYSAGE_API_KEY = os.getenv('PAYSAGE_API_KEY')
+
+def dump_full_paysage():
+    response = requests.get(
+        f'{PAYSAGE_URL}/dump/structures',
+        headers={'x-api-key': PAYSAGE_API_KEY},
+        stream=True
+    )
+    docs = []
+    with gzip.open(response.raw, 'rt') as f:
+        for line in f:
+            doc = json.loads(line)
+            docs.append(doc)
+    return docs
 
 def get_paysage_data():
     df_paysage_id = get_ods_data('fr-esr-paysage_structures_identifiants')
