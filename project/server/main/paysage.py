@@ -402,7 +402,7 @@ def format_paysage(paysage_ids, sirens):
         currentLoc = e.get('currentLocalisation')
         for f in ['country', 'city', 'address', 'iso3']:
             if isinstance(currentLoc.get(f), str):
-                address[f] = e[f]
+                address[f] = currentLoc[f]
         if isinstance(e.get('postalCode'), str):
             address['postcode'] = e['postalCode']
         if address.get('city') is None and isinstance(currentLoc.get('locality'), str):
