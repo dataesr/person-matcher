@@ -65,7 +65,7 @@ def get_name_by_lang(e, lang):
 def get_default_name(e):
     if not isinstance(e, dict):
         return None
-    for f in ['default', 'en', 'fr']:
+    for f in ['default', 'fr', 'en']:
         if isinstance(e.get(f), str):
             return e[f]
     return None
@@ -90,7 +90,7 @@ def get_orga_map():
     orga_map = {}
     for elt in data:
         res = {}
-        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench']:
+        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories']:
             if elt.get(e):
                 res[e] = elt[e]
             if isinstance(elt.get('address'), list):

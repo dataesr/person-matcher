@@ -4,7 +4,7 @@ import os
 import pickle
 from project.server.main.rnsr import dump_rnsr_data, format_rnsr
 from project.server.main.siren import format_siren
-from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage
+from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage
 from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
@@ -105,7 +105,8 @@ def get_meta_orga():
     full_data = []
     
     #paysage
-    dump_paysage_data()
+    #dump_paysage_data()
+    dump_full_paysage()
     dump_ror_data()
     corresp_paysage = get_correspondance_paysage()
     dump_rnsr_data(500)

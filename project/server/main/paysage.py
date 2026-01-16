@@ -5,6 +5,7 @@ import json
 import gzip
 import json
 import requests
+from retry import retry
 
 from project.server.main.ods import get_ods_data
 from project.server.main.utils import chunks, to_jsonl, to_json, identifier_type
@@ -16,7 +17,11 @@ logger = get_logger(__name__)
 PAYSAGE_URL = os.getenv('PAYSAGE_URL')
 PAYSAGE_API_KEY = os.getenv('PAYSAGE_API_KEY')
 
+PAYSAGE_CAT_TO_KEEP = set(pd.read_csv('categories_for_scanr.csv')['id'].to_list())
+
+@retry(delay=100, tries=3, logger=logger)
 def dump_full_paysage():
+    logger.debug('### DUMP FULL Paysage data')
     response = requests.get(
         f'{PAYSAGE_URL}/dump/structures',
         headers={'x-api-key': PAYSAGE_API_KEY},
@@ -27,6 +32,11 @@ def dump_full_paysage():
         for line in f:
             doc = json.loads(line)
             docs.append(doc)
+    logger.debug(f'{len(docs)} paysage elts retrieved')
+    os.system(f'rm -rf /upw_data/scanr/orga_ref/paysage_dump.jsonl')
+    to_jsonl(docs, f'/upw_data/scanr/orga_ref/paysage_dump.jsonl')
+    os.system(f'cd /upw_data/scanr/orga_ref && rm -rf paysage_dump.jsonl.gz && gzip -k paysage_dump.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/paysage_dump.jsonl.gz', destination=f'production/paysage_dump.jsonl.gz')
     return docs
 
 def get_paysage_data():
@@ -136,7 +146,7 @@ def get_status_from_siren(siren, df_paysage_struct, df_siren, df_ror):
         ans = get_status_from_paysage(paysage_id, df_paysage_struct)
     return ans
 
-def get_main_candidate(candidates):
+def get_main_candidate_deprecated(candidates):
     if len(candidates)==1:
         return candidates[0]
     sieges = [c for c in candidates if c.get('etablissementSiege')==1.0]
@@ -159,7 +169,60 @@ def get_main_candidate(candidates):
         return custom[0]
     return None
 
+def get_main_candidate(candidates):
+    if len(candidates)==1:
+        return candidates[0]['main_id']
+    # 1
+    parents = [c for c in candidates if c.get('is_main_parent') is True]
+    candidate_ids = list(set([c['main_id'] for c in parents]))
+    if len(candidate_ids)==1:
+        return candidate_ids[0]
+    new_candidates1 = parents
+    if len(parents)==0:
+        new_candidates1 = candidates
+    # 2
+    sieges = [c for c in new_candidates1 if c.get('etablissementSiege')==1.0]
+    candidate_ids = list(set([c['main_id'] for c in sieges]))
+    if len(candidate_ids)==1:
+        return candidate_ids[0]
+    new_candidates2 = sieges
+    if len(sieges)==0:
+        new_candidates2 = new_candidates1
+    # 3
+    filtered = [c for c in new_candidates2 if c.get('category').get('id') in PAYSAGE_CAT_TO_KEEP]
+    candidate_ids = list(set([c['main_id'] for c in filtered]))
+    if len(candidate_ids)==1:
+        return candidate_ids[0]
+    new_candidates3 = filtered
+    if len(filtered)==0:
+        new_candidates3 = new_candidates2
+    # 4
+    actives = [c for c in new_candidates3 if c.get('status')=='active']
+    candidate_ids = list(set([c['main_id'] for c in actives]))
+    if len(candidate_ids)==1:
+        return candidate_ids[0]
+    return None
+
 def get_main_id_paysage(current_id, corresp):
+    HARD_CODED = {'267500452': 'Py0K5'}
+    if current_id in HARD_CODED:
+        return HARD_CODED[current_id]
+    if identifier_type(current_id) in ['rnsr']:
+        return current_id
+    if current_id not in corresp:
+        #logger.debug(f"{current_id} not in corresp paysage !!")
+        return current_id
+    candidate = get_main_candidate(corresp[current_id])
+    if candidate:
+        return candidate
+    if identifier_type(current_id) in ['ror']:
+        return current_id
+    logger.debug('no main id for :')
+    logger.debug(current_id)
+    logger.debug(corresp[current_id])
+    return current_id
+
+def get_main_id_paysage_deprecated(current_id, corresp):
     if identifier_type(current_id) in ['rnsr']:
         return current_id
     if current_id not in corresp:
@@ -189,7 +252,46 @@ def get_main_id_paysage(current_id, corresp):
     logger.debug(corresp[current_id])
     return current_id
 
+def is_main_parent(elt):
+    relations = elt.get('relations', [])
+    for r in relations:
+        if r.get('relationTag')=='structure-interne':
+            if r.get('resourceId') != elt['id']:
+                return False
+    return True
+
 def get_correspondance_paysage():
+    corresp = {}
+    siret_map = get_siret_map()
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
+    for e in df_paysage.to_dict(orient='records'):
+        main_id = e['id']
+        for k in e['identifiers']:
+            if isinstance(k.get('value'), str) and k['type']=='siret' and k['value'] in siret_map:
+                e['etablissementSiege'] = siret_map[k['value']]['etablissementSiege']
+        for k in e['identifiers']:
+            new_elt = {'main_id': main_id}
+            for g in ['status', 'category', 'etablissementSiege']:
+                new_elt[g] = e.get(g)
+            new_elt['is_main_parent'] = is_main_parent(e)
+            if isinstance(k.get('value'), str):
+                current_ids = [k['value']]
+                if k['type'] == 'ed':
+                    current_ids.append('ED' + str(k['value']))
+                if k['type'] == 'siret':
+                    current_ids.append(k['value'][0:9])
+                for current_id in current_ids:
+                    elt_to_add = new_elt.copy()
+                    elt_to_add['type'] = k['type']
+                    elt_to_add['value'] = current_id
+                    if current_id not in corresp:
+                        corresp[current_id] = []
+                    if elt_to_add not in corresp[current_id]:
+                        corresp[current_id].append(elt_to_add)
+    logger.debug(f'{len(corresp)} elts from paysage')
+    return corresp
+
+def get_correspondance_paysage_deprecated():
     corresp = {}
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
     for e in df_paysage.to_dict(orient='records'):
@@ -212,72 +314,67 @@ def get_correspondance_paysage():
 
 def format_paysage(paysage_ids, sirens):
     logger.debug('formatting paysage data')
-    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage.jsonl', lines=True)
-    cat_to_keep = ["Grand établissement relevant d'un autre département ministériel", "Grand établissement", "Communauté d'universités et établissements", 
-            "Établissement public expérimental",
-            'Université', "Organisme de recherche", 
-            "Institut national polytechnique", "Institut ou école extérieur aux universités",
-            "École normale supérieure", "Établissement d'enseignement supérieur privé d'intérêt général",
-            "École d'ingénieurs",  "École de commerce et de management", "École nationale supérieure d'ingénieurs",
-            "Institut d'étude politique",
-            "Centre de lutte contre le cancer", "Institut hospitalo-universitaire", "Centre hospitalier",
-            "Établissement privé d'enseignement universitaire", "Établissement d'enseignement supérieur privé rattachés à un EPSCP",
-            "Établissement d'enseignement supérieur étranger", "Institution étrangère active en matière de recherche et d'innovation",
-            'Entreprise', 'Start-Up', 
-            'École doctorale', "Infrastructure de recherche"]
-    extra_ids_to_extract = df_paysage[df_paysage.category_usualnamefr.isin(cat_to_keep)].id.tolist()
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
+    paysage_data = df_paysage.to_dict(orient='records')
+    extra_ids_to_extract = []
+    for e in paysage_data:
+        if e.get('category').get('id') in PAYSAGE_CAT_TO_KEEP:
+            extra_ids_to_extract.append(e['id'])
     input_id_set = set(paysage_ids + extra_ids_to_extract)
     paysage_formatted = []
-    for e in df_paysage.to_dict(orient='records'):
+    for e in paysage_data:
         new_elt = {'id': e['id']}
         to_keep = False
         if e['id'] in input_id_set:
             to_keep = True
         new_elt['externalIds'] = [{'id': e['id'], 'type': 'paysage'}]
-        for k in e['external_ids']:
-            if isinstance(k.get('id_value'), str):
-                new_k = {'id': k['id_value'], 'type': k['id_type']}
-                if k['id_value'][0:9] in sirens:
+        for k in e['identifiers']:
+            if isinstance(k.get('value'), str) and k['type'] in ['siret', 'uai', 'grid', 'ror', 'ed', 'rnsr', 'wikidata']:
+                new_k = {'id': k['value'], 'type': k['type']}
+                if k['type'] == 'ed':
+                    new_k['id'] = 'ED'+str(k['value'])
+                if k['id'][0:9] in sirens:
                     to_keep = True
             if new_k not in new_elt['externalIds']:
                 new_elt['externalIds'].append(new_k)
         if to_keep is False:
             continue
         # startDate
-        if isinstance(e.get('creationdate'), str):
-            if len(e['creationdate'])==4:
-                new_elt['startDate'] = e['creationdate']+'-01-01T00:00:00'
-            elif len(e['creationdate'])==10:
-                new_elt['startDate'] = e['creationdate']+'T00:00:00'
-            elif len(e['creationdate'])==7:
-                new_elt['startDate'] = e['creationdate']+'-01T00:00:00'
+        if isinstance(e.get('creationDate'), str):
+            if len(e['creationDate'])==4:
+                new_elt['startDate'] = e['creationDate']+'-01-01T00:00:00'
+            elif len(e['creationDate'])==10:
+                new_elt['startDate'] = e['creationDate']+'T00:00:00'
+            elif len(e['creationDate'])==7:
+                new_elt['startDate'] = e['creationDate']+'-01T00:00:00'
             else:
-                print(e['creationdate'])
+                print(e['creationDate'])
         if new_elt.get('startDate'):
             new_elt['creationYear'] = int(new_elt['startDate'][0:4])
         # status
-        if e.get('structurestatus')=='inactive':
-            new_elt['status'] = 'old'
+        if e.get('status')=='active':
+            new_elt['status'] = 'active'
         else:
-            new_elt['status']='active'
+            new_elt['status']='old'
         # endDate
-        if isinstance(e.get('closuredate'), str):
-            if len(e['closuredate'])==4:
-                new_elt['endDate'] = e['closuredate']+'-01-01T00:00:00'
-            elif len(e['closuredate'])==10:
-                new_elt['endDate'] = e['closuredate']+'T00:00:00'
-            elif len(e['closuredate'])==7:
-                new_elt['endDate'] = e['closuredate']+'-01T00:00:00'
+        if isinstance(e.get('closureDate'), str):
+            if len(e['closureDate'])==4:
+                new_elt['endDate'] = e['closureDate']+'-01-01T00:00:00'
+            elif len(e['closureDate'])==10:
+                new_elt['endDate'] = e['closureDate']+'T00:00:00'
+            elif len(e['closureDate'])==7:
+                new_elt['endDate'] = e['closureDate']+'-01T00:00:00'
             else:
-                print(e['closuredate'])
+                print(e['closureDate'])
         # name
-        currentname = json.loads(e.get('currentname', '{}'))
-        if isinstance(e.get('officialname'), str):
-            new_elt['label'] = {'default': e['officialname']}
-        if isinstance(e.get('usualname'), str):
-            new_elt['label'] = {'default': e['usualname']}
-        if isinstance(e.get('nameen'), str):
-            new_elt['label']['en'] = e['nameen']
+        currentname = e.get('currentName')
+        if isinstance(currentname.get('officialname'), str):
+            new_elt['label'] = {'default': currentname['officialname']}
+        if isinstance(currentname.get('usualname'), str):
+            new_elt['label'] = {'default': currentname['usualname']}
+            new_elt['label'] = {'fr': currentname['usualname']}
+        if isinstance(e.get('nameEn'), str):
+            new_elt['label']['en'] = e['nameEn']
         new_elt['acronym'] = {}  
         if isinstance(currentname.get('acronymEn'), str):
             new_elt['acronym']['en'] = currentname['acronymEn']
@@ -286,40 +383,65 @@ def format_paysage(paysage_ids, sirens):
             new_elt['acronym']['fr'] = currentname['acronymFr']
             new_elt['acronym']['default'] = currentname['acronymFr']
         # kind
-        if e.get('legalcategory_sector') == 'privé':
+        if e.get('legalcategory').get('sector') == 'privé':
             new_elt['kind'] = ['Secteur privé'] 
-        elif e.get('legalcategory_sector') == 'public':
+        else:
             new_elt['kind'] = ['Secteur public'] 
-        elif e.get('legalcategory_sector'):
-            logger.debug(e.get('legalcategory_sector'))
         # level
-        if e.get('legalcategory_longnamefr'):
-            new_elt['level'] = e.get('legalcategory_longnamefr')
+        if e.get('legalcategory').get('longNameFr'):
+            new_elt['level'] = e.get('legalcategory').get('longNameFr')
+        if e.get('legalcategory').get('shortNameFr'):
+            new_elt['level'] = e.get('legalcategory').get('shortNameFr')
         new_elt['description'] = {}
-        if isinstance(e.get('descriptionfr'), str):
-            new_elt['description']['fr'] = e.get('descriptionfr')
-        if isinstance(e.get('descriptionen'), str):
-            new_elt['description']['en'] = e.get('descriptionen')
+        if isinstance(e.get('descriptionFr'), str):
+            new_elt['description']['fr'] = e.get('descriptionFr')
+        if isinstance(e.get('descriptionEn'), str):
+            new_elt['description']['en'] = e.get('descriptionEn')
         #address
         address = {'main': True}
+        currentLoc = e.get('currentLocalisation')
         for f in ['country', 'city', 'address', 'iso3']:
-            if isinstance(e.get(f), str):
+            if isinstance(currentLoc.get(f), str):
                 address[f] = e[f]
-        if isinstance(e.get('postalcode'), str):
-            address['postcode'] = e['postalcode']
-        if address.get('city') is None and isinstance(e.get('locality'), str):
-            address['city'] = e['locality']
-        if isinstance(e.get('gps'), str):
-            lat = e['gps'].split(',')[0]
-            lon = e['gps'].split(',')[1]
+        if isinstance(e.get('postalCode'), str):
+            address['postcode'] = e['postalCode']
+        if address.get('city') is None and isinstance(currentLoc.get('locality'), str):
+            address['city'] = currentLoc['locality']
+        if isinstance(currentLoc.get('geometry').get('coordinates'), list):
+            lat = currentLoc.get('geometry').get('coordinates')[1]
+            lon = currentLoc.get('geometry').get('coordinates')[0]
             address['gps'] = {'lat': lat, 'lon': lon}
         new_elt['isFrench'] = False
-        if e.get('iso3') == 'FRA':
+        if currentLoc.get('iso3') == 'FRA':
             new_elt['isFrench'] = True
         new_elt['address'] = [address]
-        if e.get('websites'):
-            new_elt['links'] = e['websites']
+        links = []
+        if isinstance(e.get('websites'), list):
+            for w in e['websites']:
+                current_link = {'url': w['url'], 'type': w['type']}
+                links.append(current_link)
+        if isinstance(e.get('socialmedias'), list):
+            for w in e['socialmedias']:
+                current_link = {'url': w['account'], 'type': w['type']}
+                links.append(current_link)
+        new_elt['links'] = links
+        new_elt['main_category'] = e.get('category', {}).get('usualNameFr')
+        new_elt['categories'] = [c.get('usualNameFr') for c in e.get('categories', []) if c.get('usualNameFr')]
+        # TODO institutions etc
         paysage_formatted.append(new_elt)
     return paysage_formatted
 
-
+def get_siret_map():
+    try:
+        siren_info = pd.read_json('/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl', lines=True).to_dict(orient='records')
+        logger.debug(f'{len(siren_info)} sirens info loaded')
+    except:
+        siren_info = format_siren(siren_list=sirens, siret_list=sirets, existing_siren=[])
+        logger.debug(f'{len(siren_info)} sirens info downloaded')
+        to_jsonl(siren_info, f'/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
+    siret_map = {}
+    for e in siren_info:
+        for k in e.get('externalIds', []):
+            if k.get('type')=='siret':
+                siret_map[k['id']] = e
+    return siret_map
