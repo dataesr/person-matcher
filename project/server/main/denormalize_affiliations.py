@@ -93,12 +93,12 @@ def get_orga_map():
         for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories']:
             if elt.get(e):
                 res[e] = elt[e]
-            if isinstance(elt.get('address'), list):
-                res['mainAddress'] = get_main_address(elt['address'])
-                if isinstance(res['mainAddress'], dict):
-                    if isinstance(res['mainAddress'].get('postcode'), str):
-                        if e.get('isFrench'):
-                            res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
+        if isinstance(elt.get('address'), list):
+            res['mainAddress'] = get_main_address(elt['address'])
+            if isinstance(res['mainAddress'], dict):
+                if isinstance(res['mainAddress'].get('postcode'), str):
+                    if elt.get('isFrench'):
+                        res['mainAddress']['region'] = get_region(res['mainAddress'].get('postcode'))
         #res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
         #if res['isFrench']:
         #    try:

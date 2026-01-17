@@ -9,7 +9,9 @@ from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_project, get_domains_from_publications
 from project.server.main.export_data_without_tunnel import dump_from_http
 from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage
+from project.server.main.entity_fishing import get_entity_fishing
 
+import pymongo
 import pysftp
 import pickle
 import requests
@@ -52,6 +54,7 @@ def get_phc_duplicates(df):
     return list(set(to_del))
 
 def load_projects(args):
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     index_name = args.get('index_name')
     if args.get('export_from_source', True):
         dump_from_http('projects', 50)
@@ -155,7 +158,12 @@ def load_projects(args):
             text_to_autocomplete = list(set(text_to_autocomplete))
             projects[ix]['autocompleted'] = text_to_autocomplete
             projects[ix]['autocompletedText'] = text_to_autocomplete
-            
+            compute_new = True
+            project_domains = get_entity_fishing(compute_new, projects[ix], myclient)
+            projects[ix]['project_domains'] = project_domains
+            domains_to_combine = [a for a in project_domains if ((a.get('type') == 'wikidata') and (a.get('count', 0) > 0))]
+            co_project_domains = get_co_occurences(project_domains, 'id_name')
+            projects[ix]['co_domains'] = co_project_domains
             title_abs_text = ''
             for field in ['label', 'description', 'keywords']:
                 if isinstance(projects[ix].get(field), dict):
@@ -168,6 +176,7 @@ def load_projects(args):
                 participations += formatted_participations 
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
         to_jsonl(participations, '/upw_data/scanr/participations_denormalized.jsonl') 
+    myclient.close()
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf projects_denormalized.jsonl.gz && gzip -k projects_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/projects_denormalized.jsonl.gz', destination='production/projects_denormalized.jsonl.gz')
     chunk_project = 500

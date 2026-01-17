@@ -368,14 +368,17 @@ def format_paysage(paysage_ids, sirens):
                 print(e['closureDate'])
         # name
         currentname = e.get('currentName')
-        if isinstance(currentname.get('officialname'), str):
-            new_elt['label'] = {'default': currentname['officialname']}
-        if isinstance(currentname.get('usualname'), str):
-            new_elt['label'] = {'default': currentname['usualname']}
-            new_elt['label'] = {'fr': currentname['usualname']}
+        if isinstance(currentname.get('officialName'), str):
+            new_elt['label'] = {'default': currentname['officialName']}
+        if isinstance(currentname.get('usualName'), str):
+            new_elt['label'] = {'default': currentname['usualName']}
+            new_elt['label'] = {'fr': currentname['usualName']}
         if isinstance(e.get('nameEn'), str):
             new_elt['label']['en'] = e['nameEn']
         new_elt['acronym'] = {}  
+        if isinstance(currentname.get('shortName'), str):
+            new_elt['acronym']['fr'] = currentname['shortName']
+            new_elt['acronym']['default'] = currentname['shortName']
         if isinstance(currentname.get('acronymEn'), str):
             new_elt['acronym']['en'] = currentname['acronymEn']
             new_elt['acronym']['default'] = currentname['acronymEn']
@@ -407,10 +410,13 @@ def format_paysage(paysage_ids, sirens):
             address['postcode'] = e['postalCode']
         if address.get('city') is None and isinstance(currentLoc.get('locality'), str):
             address['city'] = currentLoc['locality']
-        if isinstance(currentLoc.get('geometry').get('coordinates'), list):
+        geom = currentLoc.get('geometry')
+        if isinstance(geom, dict) and isinstance(geom.get('coordinates'), list):
             lat = currentLoc.get('geometry').get('coordinates')[1]
             lon = currentLoc.get('geometry').get('coordinates')[0]
             address['gps'] = {'lat': lat, 'lon': lon}
+        else:
+            logger.debug(f"no gps for {e['id']}")
         new_elt['isFrench'] = False
         if currentLoc.get('iso3') == 'FRA':
             new_elt['isFrench'] = True
