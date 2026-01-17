@@ -160,12 +160,12 @@ def get_meta_orga():
         for f in ['institutions', 'parents', 'leaders']:
             if org.get(f):
                 org[f] = remove_duplicates(org[f], org['id'])
-        address = org.get('address')
-        if isinstance(address, dict):
-            for f in ['country', 'city']:
-                if isinstance(address.get(f), str):
-                    address[f] = address[f].capitalize()
-            org['address'] = address
+        addresses = org.get('address')
+        if isinstance(addresses, list):
+            for address in addresses:
+                for f in ['country', 'city']:
+                    if isinstance(address.get(f), str):
+                        address[f] = address[f].capitalize()
 
     to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations-v2.jsonl')
     logger.debug(f'{len(full_data)} elts from total')
