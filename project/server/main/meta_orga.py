@@ -166,7 +166,17 @@ def get_meta_orga():
                 for f in ['country', 'city']:
                     if isinstance(address.get(f), str):
                         address[f] = address[f].capitalize()
+        extIdsToAdd = []
+        if not isinstance(org.get('externalIds'), list):
+            e['externalIds'] = []
+        for e in org.get('externalIds', []):
+            if e.get('type') == 'siret':
+                extIdsToAdd.append({'type': 'siren', 'id': e['id'][0:9]})
+        for e in extIdsToAdd:
+            if e not in org.get('externalIds', []):
+                org.get('externalIds').append(e)
 
+    os.system('rm -rf /upw_data/scanr/orga_ref/organizations-v2.jsonl')
     to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations-v2.jsonl')
     logger.debug(f'{len(full_data)} elts from total')
     os.system('cd /upw_data/scanr/orga_ref/ && rm -rf organizations-v2.jsonl.gz && gzip organizations-v2.jsonl')

@@ -57,7 +57,7 @@ def get_patents_orga_dict():
             for aff_id in struct:
                 if aff_id not in patents_orga_dict:
                     patents_orga_dict[aff_id] = []
-            patents_orga_dict[aff_id].append({'id': p['id'], 'title': p['title']})
+                patents_orga_dict[aff_id].append({'id': p['id'], 'title': p['title']})
     return patents_orga_dict
 
 def get_patent_from_orga(map_orga_patent, orga_id):

@@ -154,7 +154,7 @@ def get_projects_data():
         proj_map[elt['id']] = res
     return proj_map
 
-def get_link_orga_projects():
+def get_link_orga_projects(corresp):
     #url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects.jsonl.gz'
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz'
     df = pd.read_json(url, lines=True)
@@ -174,7 +174,7 @@ def get_link_orga_projects():
             for part in proj.get('participants'):
                 if isinstance(part, dict):
                     if part.get('structure'):
-                        orga_id = part['structure']
+                        orga_id = get_main_id(part['structure'], corresp)
                         if orga_id not in map_orga_proj:
                             map_orga_proj[orga_id] = []
                         current_proj = proj_map[proj_id]

@@ -120,7 +120,7 @@ def load_orga(args):
         orga = get_orga_list()
         corresp = get_correspondance()
         reverse_relation = compute_reverse_relations(orga, corresp)
-        map_proj_orga = get_link_orga_projects()
+        map_proj_orga = get_link_orga_projects(corresp)
         map_patent_orga = get_patents_orga_dict()
         map_agreements = get_agreements(corresp)
         map_awards = get_awards(corresp)
