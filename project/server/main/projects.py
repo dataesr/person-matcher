@@ -166,13 +166,13 @@ def load_projects(args):
             domains_to_combine = [a for a in project_domains if ((a.get('type') == 'wikidata') and (a.get('count', 0) > 0))]
             co_project_domains = get_co_occurences(project_domains, 'id_name')
             projects[ix]['co_domains'] = co_project_domains
-            title_abs_text_elts = ''
+            title_abs_text_elts = []
             for field in ['label', 'description', 'keywords']:
                 if isinstance(projects[ix].get(field), dict):
                     for lang in ['fr', 'en', 'default']:
                         if isinstance(projects[ix][field].get(lang), str):
                             if projects[ix][field].get(lang) not in title_abs_text_elts:
-                                title_abs_texts.append(projects[ix][field][lang])
+                                title_abs_text_elts.append(projects[ix][field][lang])
             projects[ix]['title_abs_text'] = ' '.join(title_abs_text_elts)
             formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:

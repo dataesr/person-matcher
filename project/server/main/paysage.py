@@ -407,7 +407,7 @@ def format_paysage(paysage_ids, sirens):
             if isinstance(currentLoc.get(f), str):
                 address[f] = currentLoc[f]
         if isinstance(currentLoc.get('postalCode'), str):
-            address['postcode'] = e['postalCode']
+            address['postcode'] = currentLoc['postalCode']
         if address.get('city') is None and isinstance(currentLoc.get('locality'), str):
             address['city'] = currentLoc['locality']
         geom = currentLoc.get('geometry')
