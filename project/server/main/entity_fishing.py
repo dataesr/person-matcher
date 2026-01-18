@@ -24,11 +24,11 @@ def exception_handler(func):
 
 def get_from_mongo(pid, myclient):
     mydb = myclient['scanr']
-    collection_name = 'classifications'
+    collection_name = 'project_domains'
     mycoll = mydb[collection_name]
     res = mycoll.find_one({'id': pid})
     if res:
-        return {'classifications': res['cache']}
+        return res['cache']
     return
 
 
@@ -39,7 +39,7 @@ def get_entity_fishing(compute_new, publication: dict, myclient) -> dict:
 
     if is_ok_to_use_cache:
         pre_computed = get_from_mongo(publication['id'], myclient)
-        if pre_computed and isinstance(pre_computed.get('classifications'), list):
+        if pre_computed and isinstance(pre_computed, list):
             return pre_computed
 
     if compute_new is False:

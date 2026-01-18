@@ -11,6 +11,21 @@ logger = get_logger(__name__)
     
 EXCLUDED_ID = ['881000251']
 
+def to_mongo_cache(input_list, collection_name):
+    logger.debug(f'importing {len(input_list)} {collection_name}')
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    output_json = f'{MOUNTED_VOLUME}{collection_name}_cache.jsonl'
+    pd.DataFrame(input_list).to_json(output_json, lines=True, orient='records')
+    mongoimport = f'mongoimport --numInsertionWorkers 2 --uri mongodb://mongo:27017/scanr --file {output_json}' \
+                  f' --collection {collection_name}'
+    os.system(mongoimport)
+    mycol = mydb[collection_name]
+    for f in ['id']:
+        mycol.create_index(f)
+    os.remove(output_json)
+    myclient.close()
+
 def get_main_id(current_id, correspondance):
     if current_id in correspondance:
         for c in correspondance[current_id]:

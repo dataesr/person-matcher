@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes
+from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes, to_mongo_cache
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
@@ -190,6 +190,16 @@ def load_projects(args):
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
 
+def save_classif():
+    df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
+    for c in df:
+        data = c.to_dict(orient='records')
+        for d in data:
+            if isinstance(d.get('project_domains'), list) and d['project_domains']:
+                elt = {'id': d['id'], 'cache': d['project_domains']}
+                to_save.append(elt)
+        to_mongo_cache(input_list = to_save, collection_name = 'project_domains')
+
 def test(project_id):
     orga_map = get_orga_map()
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True)
@@ -281,3 +291,4 @@ def load_scanr_projects(scanr_output_file_denormalized, index_name, chunksize=50
     logger.debug('starting import in elastic')
     os.system(elasticimport)
     refresh_index(index_name)
+
