@@ -45,7 +45,7 @@ def get_entity_fishing(compute_new, publication: dict, myclient) -> dict:
     if compute_new is False:
         return {}
 
-    logger.debug(f"compute classifications from entity fishing for {publication['id']}")
+    #logger.debug(f"compute classifications from entity fishing for {publication['id']}")
     ans = {}
 
     label = publication.get('label')

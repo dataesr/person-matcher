@@ -406,7 +406,7 @@ def format_paysage(paysage_ids, sirens):
         for f in ['country', 'city', 'address', 'iso3']:
             if isinstance(currentLoc.get(f), str):
                 address[f] = currentLoc[f]
-        if isinstance(e.get('postalCode'), str):
+        if isinstance(currentLoc.get('postalCode'), str):
             address['postcode'] = e['postalCode']
         if address.get('city') is None and isinstance(currentLoc.get('locality'), str):
             address['city'] = currentLoc['locality']
@@ -422,10 +422,18 @@ def format_paysage(paysage_ids, sirens):
             new_elt['isFrench'] = True
         new_elt['address'] = [address]
         links = []
+        link_types = []
         if isinstance(e.get('websites'), list):
             for w in e['websites']:
                 current_link = {'url': w['url'], 'type': w['type']}
-                links.append(current_link)
+                if w.get('language') == 'fr':
+                    links.append(current_link)
+                    link_types.append(w['type'])
+            for w in e['websites']:
+                current_link = {'url': w['url'], 'type': w['type']}
+                if w['type'] not in link_types:
+                    links.append(current_link)
+                    link_types.append(w['type'])
         if isinstance(e.get('socialmedias'), list):
             for w in e['socialmedias']:
                 current_link = {'url': w['account'], 'type': w['type']}
@@ -435,6 +443,8 @@ def format_paysage(paysage_ids, sirens):
         new_elt['categories'] = [c.get('usualNameFr') for c in e.get('categories', []) if c.get('usualNameFr')]
         # TODO institutions etc
         paysage_formatted.append(new_elt)
+    os.system(f'rm -rf /upw_data/scanr/orga_ref/paysage_formatted.jsonl')
+    to_jsonl(paysage_formatted, f'/upw_data/scanr/orga_ref/paysage_formatted.jsonl')
     return paysage_formatted
 
 def get_siret_map():
@@ -444,6 +454,7 @@ def get_siret_map():
     except:
         siren_info = format_siren(siren_list=sirens, siret_list=sirets, existing_siren=[])
         logger.debug(f'{len(siren_info)} sirens info downloaded')
+        os.system('rm -rf /upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
         to_jsonl(siren_info, f'/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
     siret_map = {}
     for e in siren_info:
