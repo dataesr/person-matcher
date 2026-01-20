@@ -73,7 +73,7 @@ def get_region(code_postal):
         '974': 'La Réunion',
         '975': 'Saint-Pierre-et-Miquelon',
         '976': 'Mayotte',
-        '977': 'Saint-Barthélemy',
+        '977': 'La Réunion', # cf 97744 pour l'univ de la réunion
         '978': 'Saint-Martin',
         '98': 'COM et territoires d’outre-mer',
         '984': 'Terres australes et antarctiques françaises',

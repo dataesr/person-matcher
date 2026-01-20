@@ -132,6 +132,10 @@ def format_siren(siren_list, siret_list, existing_siren=[]):
         if e['etablissementSiege'] is False:
             main_id = e['siret']
         new_elt = {'id': main_id}
+        if e['etablissementSiege']:
+            new_elt['is_main_parent'] = True
+        else:
+            new_elt['is_main_parent'] = False
         for g in ['etablissementSiege']:
             new_elt[g] = e[g]
         new_elt['externalIds'] = [{'id': e['siren'], 'type': 'siren'}]

@@ -19,6 +19,105 @@ PAYSAGE_API_KEY = os.getenv('PAYSAGE_API_KEY')
 
 PAYSAGE_CAT_TO_KEEP = set(pd.read_csv('categories_for_scanr.csv')['id'].to_list())
 
+def get_typologie(elt):
+    CAT_UNIV = [
+            {'id': 'LzIYN', 'name': 'Université scientifique et/ou médicale'},
+            {'id': 'tu7fX', 'name': 'Université pluridisciplinaire avec santé'},
+            {'id': 'UvC9F', 'name': 'Université pluridisciplinaire hors santé'},
+            {'id': '5bRja', 'name': 'Université tertiaire - droit et économie'},
+            {'id': 'yX0Xs', 'name': 'Université tertiaire - lettres et sciences Humaines'}
+            ]
+    CAT_ORGANISME = [{'id': '2ZdzP', 'name': 'Organisme de recherche'}, 
+            {'id': 'B67Dl', 'name': "Organisme lié à la recherche"}]
+    CAT_INFRA = [
+        {'id': '4Ak5K', 'name': 'Infrastructure de recherche'},
+        {'id': 'bf4uj', 'name': 'Infrastructure de recherche candidate à la feuille de route 2026'}
+            ]
+    CAT_ENTREPRISE = [{'id': 's79DJ', 'name': 'Entreprise'},
+            {'id': 'rh13d', 'name': 'Start-Up'},
+            {'id': 'uZ2E2', 'name': "Entreprise étrangère"}]
+    CAT_ETRANGER = [{'id': 'NsMkU', 'name': "Établissement d'enseignement supérieur étranger"},
+            {'id': 'P3XZB', 'name': "Institution étrangère active en matière de recherche et d'innovation"},
+            {'id': 'E61CB', 'name':"Institution étrangère en charge du financement de l'enseignement supérieur, de la recherche et de l'innovation"},
+            {'id': 'C9nJr', 'name': "Institution étrangère d'expertise et d'aide à la décision"},
+            {'id': 'XQE8E', 'name': "Institution étrangère en charge de la définition des politiques d'enseignement supérieur, de recherche et d'innovation"}]
+    CAT_INST_ECOLE = [
+                {'id': 'hg3v5', 'name': "École d'ingénieurs"},
+                {'id': 'gnP1F', 'name': "École normale supérieure"},
+                {'id': 'YHTyQ', 'name': "Ecole ou site relevant d'une école accréditée à délivrer un titre d'ingénieur diplômé"},
+                {'id': 'bXxJY', 'name': "École de commerce et de management"},
+                {'id': 'HDR9x', 'name': "Institut d'étude politique"},
+                {'id': '93BR1', 'name': "Établissement supérieur d'architecture"},
+                {'id': '7OtgP', 'name': 'Institut national polytechnique'},
+                {'id': '9BZal', 'name': "École de formation artistique"},
+                {'id': '3u0A2', 'name': "École française à l'étranger"},
+                {'id': 'vt1Z4', 'name': "Institut ou école extérieur aux universités"},
+                {'id': 'ss6r4', 'name': "Institut d’administration des entreprises"},
+                {'id': 'AVhzK', 'name': "Institut de recherche technologique"},
+                {'id': 's8Vm3', 'name': "Institut pour la transition énergétique"}
+            ]
+    CAT_SANTE = [
+            {'id': 'bf4i6', 'name': 'Cancéropôle'},
+            {'id': 'Jb7uE', 'name': 'Centre de lutte contre le cancer'},
+            {'id': '1uQLb', 'name': 'Centre hospitalier'},
+            {'id': 'habHA', 'name': 'Institut hospitalo-universitaire'}
+            ]
+    CAT_STRUCT = [{'id': 'z367d', 'name': 'Structure de recherche'}]
+    CAT_OTHER = [
+            {'id': '3Tv86', 'name': 'Organisation internationale'},
+            {'id': 'mNJ1Z', 'name': 'Incubateur public'},
+            {'id': 'xvai7', 'name': "Observatoire des sciences de l'Univers"},
+            {'id': 'i4O23', 'name': "Observatoire"},
+            {'id': '7vn7r', 'name': "Fondation de coopération scientifique"},
+            {'id': '46iKf', 'name': "Administration publique"},
+            {'id': 'rslqh', 'name': 'Institution publique (ROR)'},
+            {'id': 'yrmd0', 'name': "École doctorale"},
+            {'id': 'shaKH', 'name': "Institut universitaire de formation des maîtres"},
+            {'id': '1dx1a', 'name': "Société d'accélération du transfert de technologies Expérimentale"},
+            {'id': 'svJ2v', 'name': "Pôle de compétitivité"},
+            {'id': '7w3QE', 'name': "Autre structure"}
+            ]
+    if not isinstance(elt.get('categories'), list):
+        return {}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_ETRANGER]:
+            return {'typologie_1': 'Etablissements étrangers', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_UNIV]:
+            return {'typologie_1': 'Universités', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_ORGANISME]:
+            return {'typologie_1': 'Organismes de recherche', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_STRUCT]:
+            return {'typologie_1': 'Structures de recherche', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_ENTREPRISE]:
+            return {'typologie_1': 'Entreprises', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_INST_ECOLE]:
+            return {'typologie_1': 'Ecoles et instituts', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_SANTE]:
+            return {'typologie_1': 'Etablissements de santé', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_INFRA]:
+            return {'typologie_1': 'Infrastructures de recherche', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_OTHER]:
+            return {'typologie_1': 'Autres', 'typologie_2': c}
+        return {'typologie_1': 'Autres', 'typologie_2': c}
+    #logger.debug('no typo for')
+    #logger.debug(elt['id'])
+    #logger.debug(elt['categories'])
+
+def test_typo():
+    df = pd.read_json('/upw_data/scanr/orga_ref/paysage_formatted.jsonl', lines=True)
+    data = df.to_dict(orient='records')
+    for d in data:
+        if d.get('is_main_parent'):
+            get_typologie(d)
+
 @retry(delay=100, tries=3, logger=logger)
 def dump_full_paysage():
     logger.debug('### DUMP FULL Paysage data')
@@ -204,6 +303,7 @@ def get_main_candidate(candidates):
     return None
 
 def get_main_id_paysage(current_id, corresp):
+    current_id = current_id.strip()
     HARD_CODED = {'267500452': 'Py0K5'}
     if current_id in HARD_CODED:
         return HARD_CODED[current_id]
@@ -259,6 +359,37 @@ def is_main_parent(elt):
             if r.get('resourceId') != elt['id']:
                 return False
     return True
+
+def get_label(e):
+    label = ''
+    currentname = e.get('currentName')
+    if isinstance(currentname.get('officialName'), str):
+        label = currentname['officialName']
+    if isinstance(currentname.get('usualName'), str):
+        label = currentname['usualName']
+    return label
+
+def get_parent(elt_id, paysage_map):
+    elt = paysage_map[elt_id]
+    parents = []
+    relations = elt.get('relations', [])
+    for r in relations:
+        if r.get('relationTag')=='structure-interne':
+            if r.get('resourceId') != elt['id']:
+                parents.append(r.get('resourceId')) 
+    parents = list(set(parents))
+    main_parents = []
+    for p in parents:
+        if p not in paysage_map:
+            logger.debug(f"Data ISSUE in paysage as {p} not main_id - pb arise for {elt_id}")
+            continue
+        if is_main_parent(paysage_map[p]):
+            main_parents.append(p)
+        else:
+            main_parents += get_parent(p, paysage_map)
+    main_parents = list(set(main_parents))
+    return main_parents
+
 
 def get_correspondance_paysage():
     corresp = {}
@@ -316,6 +447,13 @@ def format_paysage(paysage_ids, sirens):
     logger.debug('formatting paysage data')
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
     paysage_data = df_paysage.to_dict(orient='records')
+    paysage_map = {}
+    for p in paysage_data:
+        p_id = p['id']
+        #p_id = p['id'].lower()
+        if p_id in paysage_map:
+            logger.debug(f'SHOULD NOT HAPPEN {p_id} already in paysage_map')
+        paysage_map[p_id] = p
     extra_ids_to_extract = []
     for e in paysage_data:
         if e.get('category').get('id') in PAYSAGE_CAT_TO_KEEP:
@@ -416,7 +554,8 @@ def format_paysage(paysage_ids, sirens):
             lon = currentLoc.get('geometry').get('coordinates')[0]
             address['gps'] = {'lat': lat, 'lon': lon}
         else:
-            logger.debug(f"no gps for {e['id']}")
+            pass
+            #logger.debug(f"no gps for {e['id']}")
         new_elt['isFrench'] = False
         if currentLoc.get('iso3') == 'FRA':
             new_elt['isFrench'] = True
@@ -442,6 +581,20 @@ def format_paysage(paysage_ids, sirens):
         new_elt['main_category'] = e.get('category', {}).get('usualNameFr')
         new_elt['categories'] = [c.get('usualNameFr') for c in e.get('categories', []) if c.get('usualNameFr')]
         # TODO institutions etc
+        parents = get_parent(new_elt['id'], paysage_map)
+        current_inst = []
+        if parents:
+            for p in parents:
+                if p not in paysage_map:
+                    logger.debug(f"Data ISSUE in paysage as {p} not main_id - pb arise for {new_elt['id']}")
+                    continue
+                current_p = paysage_map[p]
+                label = get_label(current_p)
+                new_rel = {'structure': p, 'label': label, "relationType": "établissement tutelle"}
+                if new_rel not in current_inst:
+                    current_inst.append(new_rel)
+        new_elt['institutions'] = current_inst
+        new_elt['is_main_parent'] = is_main_parent(e)
         paysage_formatted.append(new_elt)
     os.system(f'rm -rf /upw_data/scanr/orga_ref/paysage_formatted.jsonl')
     to_jsonl(paysage_formatted, f'/upw_data/scanr/orga_ref/paysage_formatted.jsonl')

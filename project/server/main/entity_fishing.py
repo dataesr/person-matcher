@@ -38,7 +38,7 @@ def get_entity_fishing(compute_new, publication: dict, myclient) -> dict:
     is_ok_to_use_cache = True
 
     if is_ok_to_use_cache:
-        pre_computed = get_from_mongo(publication['id'], myclient)
+        pre_computed = get_from_mongo(str(publication['id']), myclient)
         if pre_computed and isinstance(pre_computed, list):
             return pre_computed
 
@@ -113,7 +113,7 @@ def format_classif(classifications):
     if isinstance(classifications, list):
         for c in classifications:
             if c.get('label'):
-                domain = {'label': {'default': c['label']}}
+                domain = {'label': {'default': c['label'].capitalize()}}
                 domain['code'] = str(c.get('code'))
                 if domain['code'] in forbid_wiki:
                     continue

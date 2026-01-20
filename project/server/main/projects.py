@@ -176,7 +176,9 @@ def load_projects(args):
             projects[ix]['title_abs_text'] = ' '.join(title_abs_text_elts)
             formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:
-                participations += formatted_participations 
+                participations += formatted_participations
+                projects[ix]['participants_id_search'] = list(set([u['participant_id'] for u in formatted_participations if u.get('participant_id')]))
+                projects[ix]['participants_id_name_search'] = list(set([u['participant_id_name'] for u in formatted_participations if u.get('participant_id_name')]))
         to_jsonl(projects, '/upw_data/scanr/projects_denormalized.jsonl') 
         to_jsonl(participations, '/upw_data/scanr/participations_denormalized.jsonl') 
     myclient.close()
@@ -194,9 +196,10 @@ def save_classif():
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
     for c in df:
         data = c.to_dict(orient='records')
+        to_save = []
         for d in data:
             if isinstance(d.get('project_domains'), list) and d['project_domains']:
-                elt = {'id': d['id'], 'cache': d['project_domains']}
+                elt = {'id': str(d['id']), 'cache': d['project_domains']}
                 to_save.append(elt)
         to_mongo_cache(input_list = to_save, collection_name = 'project_domains')
 
@@ -209,13 +212,14 @@ def test(project_id):
     return get_participations(p, orga_map)
 
 def get_participations(project, orga_map):
+    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
             if isinstance(p.get('structure'), dict):
                 new_part = {}
                 # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
-                for f in ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding']:
+                for f in FIELDS_IN_PART:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
                 if new_part and new_part.get('participant_id'):
@@ -226,7 +230,7 @@ def get_participations(project, orga_map):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
                             new_part = {}
                             current_part = get_orga(orga_map, inst['structure'])
-                            for f in ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench']:
+                            for f in FIELDS_IN_PART:
                                 if f in current_part:
                                     new_part[f'participant_{f}'] = current_part[f]
                             if new_part and new_part.get('participant_id'):

@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id
+from project.server.main.paysage import get_typologie
 from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
 
@@ -85,14 +86,27 @@ def get_orga_list():
     data = df.to_dict(orient='records')
     return data
 
+def get_panel_erc(elt):
+    if isinstance(elt.get('activities'), list):
+        for a in elt['activities']:
+            if a.get('type') == 'panel_erc':
+                return a
+    return  {}
+
 def get_orga_map():
     data = get_orga_list()
     orga_map = {}
     for elt in data:
         res = {}
-        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories']:
+        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories', 'is_main_parent']:
             if elt.get(e):
                 res[e] = elt[e]
+        panel_erc= get_panel_erc(elt)
+        if panel_erc:
+            res['panel_erc'] = panel_erc
+        typologie = get_typologie(elt)
+        if typologie:
+            res.update(typologie)
         if isinstance(elt.get('address'), list):
             res['mainAddress'] = get_main_address(elt['address'])
             if isinstance(res['mainAddress'], dict):

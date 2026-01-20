@@ -175,6 +175,14 @@ def get_meta_orga():
         for e in extIdsToAdd:
             if e not in org.get('externalIds', []):
                 org.get('externalIds').append(e)
+        if org.get('isFrench'):
+            if isinstance(org['address'], list) and len(org['address'])>0:
+                #if org['address'][0].get('country') != 'France':
+                #    logger.debug(f"correct country for {org['id']} from {org['address'][0].get('country')} to France")
+                #org['address'][0]['country'] = 'France'
+                pass
+            else:
+                logger.debug(f"no address for {org['id']}")
 
     os.system('rm -rf /upw_data/scanr/orga_ref/organizations-v2.jsonl')
     to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations-v2.jsonl')

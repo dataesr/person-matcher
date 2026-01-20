@@ -4,12 +4,15 @@ import itertools
 from project.server.main.logger import get_logger
 import pymongo
 import re
+import os
 
 NB_MAX_CO_ELEMENTS = 20
 
 logger = get_logger(__name__)
     
 EXCLUDED_ID = ['881000251']
+
+MOUNTED_VOLUME = '/upw_data/'
 
 def to_mongo_cache(input_list, collection_name):
     logger.debug(f'importing {len(input_list)} {collection_name}')
