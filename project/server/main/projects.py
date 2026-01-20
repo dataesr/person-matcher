@@ -10,6 +10,7 @@ from project.server.main.scanr2 import get_publications_for_project, get_domains
 from project.server.main.export_data_without_tunnel import dump_from_http
 from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage
 from project.server.main.entity_fishing import get_entity_fishing
+from project.server.main.mistral import get_mistral_answer
 
 import pymongo
 import pysftp
@@ -74,8 +75,10 @@ def load_projects(args):
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
         corresp_paysage = get_correspondance_paysage()
         for ix, p in enumerate(projects):
-            if ix % 100 == 0:
+            if ix % 10 == 0:
                 logger.debug(f'{ix}/{len(projects)} projects')
+            if ix > 50:
+                continue
             # rename with priorities, domains will be used later down
             if (isinstance(p.get('domains'), list)) and not (isinstance(p.get('priorities'), list)):
                 p['priorities'] = p['domains']
@@ -174,6 +177,9 @@ def load_projects(args):
                             if projects[ix][field].get(lang) not in title_abs_text_elts:
                                 title_abs_text_elts.append(projects[ix][field][lang])
             projects[ix]['title_abs_text'] = ' '.join(title_abs_text_elts)
+            classification = get_mistral_answer(projects['ix'], myclient)
+            if classification:
+                projects['ix']['classification'] 
             formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:
                 participations += formatted_participations
@@ -192,16 +198,22 @@ def load_projects(args):
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
 
-def save_classif():
+def save_classif(domains, mistral):
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
     for c in df:
         data = c.to_dict(orient='records')
-        to_save = []
+        to_save_domains, to_save_mistral = [], []
         for d in data:
-            if isinstance(d.get('project_domains'), list) and d['project_domains']:
+            if domains and isinstance(d.get('project_domains'), list) and d['project_domains']:
                 elt = {'id': str(d['id']), 'cache': d['project_domains']}
-                to_save.append(elt)
-        to_mongo_cache(input_list = to_save, collection_name = 'project_domains')
+                to_save_domains.append(elt)
+            if mistral and isinstance(d.get('classification'), dict) and d['classification']:
+                elt = {'id': str(d['id']), 'cache': d['classification']}
+                to_save_mistral.append(elt)
+        if domains:
+            to_mongo_cache(input_list = to_save_domains, collection_name = 'project_domains')
+        if mistral:
+            to_mongo_cache(input_list = to_save_mistral, collection_name = 'project_classification')
 
 def test(project_id):
     orga_map = get_orga_map()
@@ -212,7 +224,7 @@ def test(project_id):
     return get_participations(p, orga_map)
 
 def get_participations(project, orga_map):
-    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2']
+    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'classification']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
