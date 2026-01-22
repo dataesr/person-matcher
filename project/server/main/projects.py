@@ -75,15 +75,13 @@ def load_projects(args):
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
         corresp_paysage = get_correspondance_paysage()
         for ix, p in enumerate(projects):
-            if ix % 10 == 0:
+            if ix % 100 == 0:
                 logger.debug(f'{ix}/{len(projects)} projects')
-            if ix > 50:
-                continue
             # rename with priorities, domains will be used later down
             if (isinstance(p.get('domains'), list)) and not (isinstance(p.get('priorities'), list)):
                 p['priorities'] = p['domains']
             # split keywords
-            if isinstance(p['keywords'], dict):
+            if isinstance(p.get('keywords'), dict):
                 for lang in p['keywords']:
                     if isinstance(p['keywords'][lang], list):
                         new_keywords = []
@@ -177,9 +175,9 @@ def load_projects(args):
                             if projects[ix][field].get(lang) not in title_abs_text_elts:
                                 title_abs_text_elts.append(projects[ix][field][lang])
             projects[ix]['title_abs_text'] = ' '.join(title_abs_text_elts)
-            classification = get_mistral_answer(projects['ix'], myclient)
+            classification = get_mistral_answer(projects[ix], myclient)
             if classification:
-                projects['ix']['classification'] 
+                projects[ix]['classification'] = classification
             formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:
                 participations += formatted_participations
@@ -200,6 +198,17 @@ def load_projects(args):
 
 def save_classif(domains, mistral):
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
+    assert(len(df)>135000)
+    myclient = pymongo.MongoClient('mongodb://mongo:27017/')
+    mydb = myclient['scanr']
+    if mistral:
+        collection_name = 'project_classification'
+    if domains:
+        collection_name = 'project_domains'
+    mycoll = mydb[collection_name]
+    logger.debug(f'dropping {collection_name}')
+    mycoll.drop()
+    myclient.close()
     for c in df:
         data = c.to_dict(orient='records')
         to_save_domains, to_save_mistral = [], []
@@ -224,7 +233,7 @@ def test(project_id):
     return get_participations(p, orga_map)
 
 def get_participations(project, orga_map):
-    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'classification']
+    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
@@ -251,7 +260,7 @@ def get_participations(project, orga_map):
     part_ids = [k['participant_id'] for k in participations]
     assert(len(part_ids) == len(set(part_ids)))
     for part in participations:
-        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced']:
+        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification']:
             if f in project:
                 part[f'project_{f}']=project[f]
         if ('project_budgetTotal' not in part) or (part.get('project_budgetTotal') != part.get('project_budgetTotal')):

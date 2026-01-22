@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 from retry import retry
 from project.server.main.logger import get_logger
 logger = get_logger(__name__)
@@ -16,7 +17,7 @@ def get_from_mongo(pid, myclient):
 @retry(delay=30, tries=2, logger=logger)
 def get_mistral_answer(project, myclient):
     pre_computed = get_from_mongo(str(project['id']), myclient)
-    if pre_computed and isinstance(pre_computed, list):
+    if pre_computed and isinstance(pre_computed, dict) and isinstance(pre_computed.get('primary_field'), str):
         return pre_computed
     label = project.get('label')
     description = project.get('description')
@@ -45,6 +46,7 @@ def get_mistral_answer(project, myclient):
     if keywords_txt:
         msg += f'Keywords: "{keywords_txt}"\n'
     messages = [{'role': 'user', 'content': msg}]
+    logger.debug(f'LLM call for {msg}')
     r = requests.post(os.getenv('MISTRAL_COMPLETION_URL'), json = {'messages': messages, 'agent_id': os.getenv('MISTRAL_AGENT_CLASSIF_PROJ')},
                   headers={
                       'Authorization': 'Bearer '+os.getenv('MISTRAL_API_KEY'),
