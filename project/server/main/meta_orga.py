@@ -82,6 +82,8 @@ def get_lists(grid2ror):
             for p in e['participants']:
                 if isinstance(p.get('structure'), str):
                     id_type = identifier_type(p.get('structure'))
+                    if id_type=='paysage':
+                        paysages.append(p['structure'])
                     if id_type=='siren':
                         sirens.append(p['structure'])
                     if id_type=='siret':

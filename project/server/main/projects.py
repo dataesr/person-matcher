@@ -198,7 +198,6 @@ def load_projects(args):
 
 def save_classif(domains, mistral):
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
-    assert(len(df)>135000)
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')
     mydb = myclient['scanr']
     if mistral:
