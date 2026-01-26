@@ -18,7 +18,7 @@ def clean_discipline(x):
     if x in ['Archaeology', 'Psychology', 'Psychological Sciences']:
         return 'Humanities'
     if x in ['Astronomy and Physics']:
-        return 'Physics and Astronomy']
+        return 'Physics and Astronomy'
     return x
 
 def to_mongo_cache(input_list, collection_name):
