@@ -25,7 +25,8 @@ def get_typologie(elt):
             {'id': 'tu7fX', 'name': 'Université pluridisciplinaire avec santé'},
             {'id': 'UvC9F', 'name': 'Université pluridisciplinaire hors santé'},
             {'id': '5bRja', 'name': 'Université tertiaire - droit et économie'},
-            {'id': 'yX0Xs', 'name': 'Université tertiaire - lettres et sciences Humaines'}
+            {'id': 'yX0Xs', 'name': 'Université tertiaire - lettres et sciences Humaines'},
+            {'id': 'mCpLW', 'name': 'Université'}
             ]
     CAT_ORGANISME = [{'id': '2ZdzP', 'name': 'Organisme de recherche'}, 
             {'id': 'B67Dl', 'name': "Organisme lié à la recherche"}]
@@ -54,7 +55,8 @@ def get_typologie(elt):
                 {'id': 'vt1Z4', 'name': "Institut ou école extérieur aux universités"},
                 {'id': 'ss6r4', 'name': "Institut d’administration des entreprises"},
                 {'id': 'AVhzK', 'name': "Institut de recherche technologique"},
-                {'id': 's8Vm3', 'name': "Institut pour la transition énergétique"}
+                {'id': 's8Vm3', 'name': "Institut pour la transition énergétique"},
+                {'id': 'lHssW', 'name': 'Établissement participant au COMP'}
             ]
     CAT_SANTE = [
             {'id': 'bf4i6', 'name': 'Cancéropôle'},
@@ -84,7 +86,7 @@ def get_typologie(elt):
             return {'typologie_1': 'Etablissements étrangers', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_UNIV]:
-            return {'typologie_1': 'Universités', 'typologie_2': c}
+            return {'typologie_1': 'Universités et assimilé', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_ORGANISME]:
             return {'typologie_1': 'Organismes de recherche', 'typologie_2': c}
@@ -95,14 +97,14 @@ def get_typologie(elt):
         if c in [k['name'] for k in CAT_ENTREPRISE]:
             return {'typologie_1': 'Entreprises', 'typologie_2': c}
     for c in elt.get('categories', []):
-        if c in [k['name'] for k in CAT_INST_ECOLE]:
-            return {'typologie_1': 'Ecoles et instituts', 'typologie_2': c}
-    for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_SANTE]:
             return {'typologie_1': 'Etablissements de santé', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_INFRA]:
             return {'typologie_1': 'Infrastructures de recherche', 'typologie_2': c}
+    for c in elt.get('categories', []):
+        if c in [k['name'] for k in CAT_INST_ECOLE]:
+            return {'typologie_1': 'Ecoles, instituts et assimilés', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_OTHER]:
             return {'typologie_1': 'Autres', 'typologie_2': c}

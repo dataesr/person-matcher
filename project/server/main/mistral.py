@@ -5,6 +5,7 @@ from retry import retry
 from project.server.main.logger import get_logger
 logger = get_logger(__name__)
 
+
 def get_from_mongo(pid, myclient):
     mydb = myclient['scanr']
     collection_name = 'project_classification'

@@ -14,6 +14,13 @@ EXCLUDED_ID = ['881000251']
 
 MOUNTED_VOLUME = '/upw_data/'
 
+def clean_discipline(x):
+    if x in ['Archaeology', 'Psychology', 'Psychological Sciences']:
+        return 'Humanities'
+    if x in ['Astronomy and Physics']:
+        return 'Physics and Astronomy']
+    return x
+
 def to_mongo_cache(input_list, collection_name):
     logger.debug(f'importing {len(input_list)} {collection_name}')
     myclient = pymongo.MongoClient('mongodb://mongo:27017/')

@@ -1,7 +1,7 @@
 from project.server.main.strings import normalize
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object, delete_object
-from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes, to_mongo_cache
+from project.server.main.utils import chunks, to_jsonl, to_json, get_co_occurences, save_to_mongo_publi_indexes, to_mongo_cache, clean_discipline
 from project.server.main.s3 import upload_object
 from project.server.main.denormalize_affiliations import get_orga, get_orga_map, get_projects_data, get_project, get_link_orga_projects, get_project_from_orga 
 from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, ES_URL
@@ -178,6 +178,7 @@ def load_projects(args):
             classification = get_mistral_answer(projects[ix], myclient)
             if classification:
                 projects[ix]['classification'] = classification
+                projects[ix]['classification']['primary_field'] = clean_discipline(classification['primary_field'])
             formatted_participations = get_participations(projects[ix], orga_map)
             if formatted_participations:
                 participations += formatted_participations
