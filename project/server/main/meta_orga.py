@@ -9,6 +9,8 @@ from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
+from project.server.main.regions import get_region
+from project.server.main.paysage import get_typologie
 from project.server.main.utils import identifier_type
 from project.server.main.s3 import upload_object
 from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, build_ed_map, identifier_type, remove_duplicates
@@ -177,6 +179,16 @@ def get_meta_orga():
         for e in extIdsToAdd:
             if e not in org.get('externalIds', []):
                 org.get('externalIds').append(e)
+        addresses = org.get('address')
+        if org.get('isFrench'):
+            if isinstance(addresses, list):
+                for ik, address in enumerate(addresses):
+                    if isinstance(address.get('postcode'), str):
+                        region = get_region(address.get('postcode'))
+                        addresses[ik]['region'] = region
+        typologie = get_typologie(org)
+        if typologie:
+            org.update(typologie)
         if org.get('isFrench'):
             if isinstance(org['address'], list) and len(org['address'])>0:
                 #if org['address'][0].get('country') != 'France':

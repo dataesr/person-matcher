@@ -233,7 +233,7 @@ def test(project_id):
     return get_participations(p, orga_map)
 
 def get_participations(project, orga_map):
-    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2']
+    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
@@ -296,9 +296,9 @@ def get_participations(project, orga_map):
             if new_address:
                 part['address'] = new_address
     for part in participations:
-        part['co_partners_fr_labs'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
-        part['co_partners_fr_inst'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_id_name')]))
-        part['co_partners_foreign_inst'] = list(set([k['participant_id_name'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_id_name')]))
+        part['co_partners_fr_labs'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
+        part['co_partners_fr_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
+        part['co_partners_foreign_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_encoded_key')]))
         try:
             part['participant_isFrench']
         except:

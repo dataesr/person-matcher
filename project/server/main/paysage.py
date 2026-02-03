@@ -26,6 +26,7 @@ def get_typologie(elt):
             {'id': 'UvC9F', 'name': 'Université pluridisciplinaire hors santé'},
             {'id': '5bRja', 'name': 'Université tertiaire - droit et économie'},
             {'id': 'yX0Xs', 'name': 'Université tertiaire - lettres et sciences Humaines'},
+            {'id': 'nw20k', 'name': 'Université de technologie'},
             {'id': 'mCpLW', 'name': 'Université'}
             ]
     CAT_ORGANISME = [{'id': '2ZdzP', 'name': 'Organisme de recherche'}, 
@@ -56,7 +57,11 @@ def get_typologie(elt):
                 {'id': 'ss6r4', 'name': "Institut d’administration des entreprises"},
                 {'id': 'AVhzK', 'name': "Institut de recherche technologique"},
                 {'id': 's8Vm3', 'name': "Institut pour la transition énergétique"},
-                {'id': 'lHssW', 'name': 'Établissement participant au COMP'}
+                {'id': 'lHssW', 'name': 'Établissement participant au COMP'},
+                {'id': '95ius', 'name': 'Établissement de la 3eme vague de COMP'},
+                {'id': 'dmk6m', 'name': "Établissement de la 2eme vague de COMP"},
+                {'id': 'FAFNi', 'name': 'Établissement de la 1ère vague de COMP'},
+                {'id': '2SZlU', 'name': "Principaux établissements d'enseignement supérieur"}
             ]
     CAT_SANTE = [
             {'id': 'bf4i6', 'name': 'Cancéropôle'},
@@ -86,7 +91,7 @@ def get_typologie(elt):
             return {'typologie_1': 'Etablissements étrangers', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_UNIV]:
-            return {'typologie_1': 'Universités et assimilé', 'typologie_2': c}
+            return {'typologie_1': 'Universités et assimilés', 'typologie_2': c}
     for c in elt.get('categories', []):
         if c in [k['name'] for k in CAT_ORGANISME]:
             return {'typologie_1': 'Organismes de recherche', 'typologie_2': c}

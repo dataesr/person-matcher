@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+from retry import retry
 from project.server.main.utils import get_main_id
 from project.server.main.logger import get_logger
 
@@ -8,6 +9,7 @@ logger = get_logger(__name__)
 
 ODS_API_KEY = os.getenv('ODS_API_KEY')
 
+@retry(delay=100, tries=5, logger=logger)
 def get_ods_data(key):
     logger.debug(f'getting ods data {key}')
     current_df = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/{key}/download/?format=csv&apikey={ODS_API_KEY}', sep=';')

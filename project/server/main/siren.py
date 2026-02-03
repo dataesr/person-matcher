@@ -3,6 +3,7 @@ import requests
 import numpy as np
 import datetime
 from io import BytesIO
+from retry import retry
 from pyproj import Transformer
 from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
@@ -62,16 +63,19 @@ def read_parquet_from_url(url, columns=None):
     r.raise_for_status()
     return pd.read_parquet(BytesIO(r.content), columns=columns)
 
+@retry(delay=100, tries=4, logger=logger)
 def get_ul_histo():
     df_ul = read_parquet_from_url(UNITE_LEGALE_HISTO_URL, columns=UL_HISTO_COLS)
     logger.debug('ok')
     return df_ul
 
+@retry(delay=100, tries=4, logger=logger)
 def get_etab():
     df_et = read_parquet_from_url(ETABLISSEMENT_URL, columns=ET_COLS)
     logger.debug('ok')
     return df_et
   
+@retry(delay=100, tries=4, logger=logger)
 def get_ul():
     df_ul = read_parquet_from_url(UNITE_LEGALE_URL, columns=UL_COLS)
     logger.debug('ok')

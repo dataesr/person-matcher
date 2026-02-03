@@ -75,6 +75,8 @@ def format_rnsr():
                         k['structure'] = get_main_id_paysage(k['structure'], corresp)
                         if identifier_type(k['structure']) not in ['rnsr', 'paysage', 'ror']:
                             logger.debug(f'tutelle identification to check {k}')
+        #e['categories'] = [{'id': 'z367d', 'name': 'Structure de recherche'}]
+        e['categories'] = ['Structure de recherche']
         data.append(e)
     os.system('cd /upw_data/scanr/orga_ref/ && rm -rf rnsr_formatted.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr_formatted.jsonl')

@@ -162,6 +162,12 @@ def reset_index_scanr(index: str) -> None:
                 'type': 'boolean'
             }
 
+    for f in ["participant_encoded_key"]:
+        mappings['properties'][f] = { 
+             "type": "keyword",
+              "ignore_above": 512
+        }
+
     for f in ['startDate']: 
         mappings['properties'][f] = { 
         "type": "date",

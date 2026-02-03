@@ -38,9 +38,9 @@ def get_region(code_postal):
         '62': 'Hauts-de-France', '80': 'Hauts-de-France',
         
         # Ile-de-France
-        '75': 'Ile-de-France', '77': 'Ile-de-France', '78': 'Ile-de-France',
-        '91': 'Ile-de-France', '92': 'Ile-de-France', '93': 'Ile-de-France',
-        '94': 'Ile-de-France', '95': 'Ile-de-France',
+        '75': 'Île-de-France', '77': 'Île-de-France', '78': 'Île-de-France',
+        '91': 'Île-de-France', '92': 'Île-de-France', '93': 'Île-de-France',
+        '94': 'Île-de-France', '95': 'Île-de-France',
         
         # Normandie
         '14': 'Normandie', '27': 'Normandie', '50': 'Normandie', '61': 'Normandie', '76': 'Normandie',
