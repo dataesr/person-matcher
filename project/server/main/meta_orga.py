@@ -77,6 +77,30 @@ def get_lists(grid2ror):
     agreements = get_agreements(corresp = {})
     sirens += [k for k in agreements if len(k)==9]
 
+    #start-ups
+    startup_links, incubateurs = {}, {}
+    df_start = get_ods_data('fr-esr-startup-esr-france-back')
+    for k in df_start.to_dict(orient='records'):
+        if len(str(k['siren_startup']))==9:
+            sirens += str(k['siren_startup'])
+        if len(str(k['siren_startup']))==14:
+            sirets += str(k['siren_startup'])
+        startup_links[str(k['siren_startup'])] = []
+        incubateurs[str(k['siren_startup'])] = []
+        for field in ['incubateur_public_id', 'structures_liees_id']:
+            if isinstance(k.get(field), str):
+                for g in k[field].split(','):
+                    g = g.strip()
+                    if len(g)==5:
+                        paysages.append(g)
+                    if len(g)==9:
+                        sirens.append(g)
+                    if len(g)==14:
+                        sirets.append(g)
+                    if field == 'incubateur_public_id':
+                        incubateurs[str(k['siren_startup'])].append({'structure': g})
+                    if field == 'structures_liees_id':
+                        startup_links[str(k['siren_startup'])].append({'structure': g})
     # projects
     df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz', lines=True)
     for e in df.to_dict(orient='records'):
@@ -99,7 +123,7 @@ def get_lists(grid2ror):
     sirets = list(set(sirets))
     rors = list(set(rors))
     paysages = list(set(paysages))
-    ans = {'siren': sirens, 'siret':sirets, 'ror': rors, 'paysage': paysages}
+    ans = {'siren': sirens, 'siret':sirets, 'ror': rors, 'paysage': paysages, 'startup_links': startup_links, 'incubateurs': incubateurs}
     for k in ans:
         logger.debug(f'{k}: {len(ans[k])} elts')
     pickle.dump(ans, open('/upw_data/lists.pkl', 'wb'))
@@ -124,11 +148,11 @@ def get_meta_orga():
         
     lists = get_lists(grid2ror)
         
-    try:
-        lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
-        logger.debug('read pkl list')
-    except:
-        lists = get_lists(grid2ror)
+    #try:
+    #    lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
+    #    logger.debug('read pkl list')
+    #except:
+    #    lists = get_lists(grid2ror)
     
     paysage_data = format_paysage(lists['paysage'], lists['siren'])
     to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')
@@ -179,6 +203,13 @@ def get_meta_orga():
         for e in extIdsToAdd:
             if e not in org.get('externalIds', []):
                 org.get('externalIds').append(e)
+        incubateurs = lists['incubateurs']
+        startup_links = lists['startup_links']
+        for e in org.get('externalIds', []):
+            if e.get('id') in incubateurs:
+                org['incubateurs'] = incubateurs[e['id']]
+            if e.get('id') in startup_links:
+                org['startup_links'] = startup_links[e['id']]
         addresses = org.get('address')
         if org.get('isFrench'):
             if isinstance(addresses, list):

@@ -60,7 +60,7 @@ def get_html_from_crawler(current_id, get_zip):
     return all_html
 
 def compute_reverse_relations(data, corresp):
-    reverse_relation_fields = ['parents', 'institutions', 'relations', 'predecessors']
+    reverse_relation_fields = ['parents', 'institutions', 'relations', 'predecessors', 'incubateurs', 'startup_links']
     reverse_relation={}
     for f in reverse_relation_fields:
         reverse_relation[f] = {}
@@ -142,7 +142,7 @@ def load_orga(args):
                 if isinstance(web_content, str) and len(web_content)>10:
                     new_p['web_content'] = web_content
             mainAddress = get_main_address(p.get('address'))
-            for f in ['parents', 'institutions', 'relations']:
+            for f in ['parents', 'institutions', 'relations', 'incubateurs', 'startup_links']:
                 if current_id in reverse_relation[f]:
                     new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]
                     logger.debug(f'{f[0:-1]}Of {len(reverse_relation[f][current_id])}')
@@ -176,7 +176,8 @@ def load_orga(args):
                 reasons_scanr.append('patent')
             logger.debug(f'nb_publis = {nb_publis}, nb_projects={nb_projects}, nb_patents={nb_patents}')
             nb_relationships = 0
-            for f in ['institutions', 'predecessors', 'relations', 'parents', 'parentOf', 'institutionOf', 'relationOf', 'predecessorOf']:
+            for f in ['institutions', 'predecessors', 'relations', 'parents','incubateurs', 'startup_links', 
+                    'parentOf', 'institutionOf', 'relationOf', 'predecessorOf', 'incubateurOf', 'startup_linkOf']:
                 if not isinstance(new_p.get(f), list):
                     continue
                 for ix, e in enumerate(new_p[f]):

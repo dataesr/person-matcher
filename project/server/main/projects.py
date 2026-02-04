@@ -260,9 +260,16 @@ def get_participations(project, orga_map):
     part_ids = [k['participant_id'] for k in participations]
     assert(len(part_ids) == len(set(part_ids)))
     for part in participations:
-        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification']:
+        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
             if f in project:
                 part[f'project_{f}']=project[f]
+        if isinstance(project.get('action'), dict) and isinstance(project['action'].get('label', {}).get('default'), str):
+            part['project_action'] = project['action'].get('label', {}).get('default')
+        if isinstance(project.get('label'), dict):
+            for lan in ['default', 'en', 'fr']:
+                if isinstance(project['label'].get(lan), str):
+                    part['project_label'] = project['label'][lan]
+                    break
         if ('project_budgetTotal' not in part) or (part.get('project_budgetTotal') != part.get('project_budgetTotal')):
             if ('project_budgetFinanced' in part) and (part.get('project_budgetFinanced')==part.get('project_budgetFinanced')):
                 part['project_budgetTotal'] = part['project_budgetFinanced']

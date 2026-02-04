@@ -89,11 +89,12 @@ def call_ef(text, lang):
     if text and isinstance(text, str) and len(text)>20:
         params = {
         "language": {"lang": lang},
-        'text': text,
         "mentions": [ "wikipedia"] 
         }
         if len(text.split(' '))<30:
             params['shortText'] = text
+        else:
+            params['text'] = text
         r = requests.post(f"{ENTITY_FISHING_SERVICE}/service/disambiguate", json = params)
         res = r.json()
 
