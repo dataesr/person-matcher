@@ -1,7 +1,6 @@
 import pandas as pd
 import requests
-from urllib.parse import urlencode
-from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id
+from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id, get_default_name
 #from project.server.main.paysage import get_typologie
 #from project.server.main.regions import get_region
 from project.server.main.logger import get_logger
@@ -64,14 +63,6 @@ def get_name_by_lang(e, lang):
         return e[lang]
     return None
 
-def get_default_name(e):
-    if not isinstance(e, dict):
-        return None
-    for f in ['default', 'fr', 'en']:
-        if isinstance(e.get(f), str):
-            return e[f]
-    return None
-
 def compute_is_french_deprecated(elt_id, mainAddress):
     isFrench = True
     if 'grid' in elt_id or 'ror' in elt_id:
@@ -87,54 +78,14 @@ def get_orga_list():
     data = df.to_dict(orient='records')
     return data
 
-def get_panel_erc(elt):
-    if isinstance(elt.get('activities'), list):
-        for a in elt['activities']:
-            if a.get('type') == 'panel_erc':
-                return a
-    return  {}
-
 def get_orga_map():
     data = get_orga_list()
     orga_map = {}
     for elt in data:
         res = {}
-        data_to_encode = {}
-        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories', 'is_main_parent', 'typologie_1', 'typologie_2']:
+        for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents', 'isFrench', 'main_category', 'categories', 'is_main_parent', 'typologie_1', 'typologie_2', 'encoded_key']:
             if elt.get(e):
                 res[e] = elt[e]
-        for k in ['id', 'typologie_1', 'typologie_2']:
-            if elt.get(k):
-                data_to_encode[k] = elt[k]
-        panel_erc= get_panel_erc(elt)
-        if panel_erc:
-            res['panel_erc'] = panel_erc
-            data_to_encode['panel_erc'] = panel_erc
-        #typologie = get_typologie(elt)
-        #if typologie:
-        #    res.update(typologie)
-        #    data_to_encode.update(typologie)
-        if isinstance(elt.get('address'), list):
-            res['mainAddress'] = get_main_address(elt['address'])
-            if isinstance(res['mainAddress'], dict):
-                if isinstance(res['mainAddress'].get('country'), str):
-                    data_to_encode['country'] = res['mainAddress'].get('country')
-                if isinstance(res['mainAddress'].get('city'), str):
-                    data_to_encode['city'] = res['mainAddress'].get('city')
-                if isinstance(res['mainAddress'].get('region'), str):
-                    data_to_encode['region'] = res['mainAddress'].get('region')
-                #if isinstance(res['mainAddress'].get('postcode'), str):
-                #    if elt.get('isFrench'):
-                #        region = get_region(res['mainAddress'].get('postcode'))
-                #        res['mainAddress']['region'] = region
-                #        data_to_encode['region'] = region
-        #res['isFrench'] = compute_is_french(elt['id'], res.get('mainAddress'))
-        #if res['isFrench']:
-        #    try:
-        #        assert(res.get('mainAddress', {}).get('country', '') == 'France')
-        #    except:
-        #        logger.debug('should be France')
-        #        logger.debug(res.get('mainAddress'))
         if res.get('status') == 'valid':
             res['status'] = 'active'
         assert(res.get('status') in ['active', 'old'])
@@ -152,7 +103,6 @@ def get_orga_map():
                 encoded_label = 'DEFAULT_' + default_label
             res['id_name'] = f"{elt['id']}###{encoded_label}"
             if default_label:
-                data_to_encode['label'] = default_label
                 res['id_name_default'] = f"{elt['id']}###{default_label}"
             elif fr_label:
                 res['id_name_default'] = f"{elt['id']}###{fr_label}"
@@ -161,7 +111,6 @@ def get_orga_map():
         else:
             logger.debug('No Label ???')
             logger.debug(res)
-        res['encoded_key'] = urlencode(data_to_encode)
         orga_map[elt['id']] = res
     return orga_map
 

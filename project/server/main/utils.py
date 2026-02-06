@@ -14,6 +14,14 @@ EXCLUDED_ID = ['881000251']
 
 MOUNTED_VOLUME = '/upw_data/'
 
+def get_default_name(e):
+    if not isinstance(e, dict):
+        return None
+    for f in ['default', 'fr', 'en']:
+        if isinstance(e.get(f), str):
+            return e[f]
+    return None
+
 def clean_discipline(x):
     if x in ['Archaeology', 'Psychology', 'Psychological Sciences']:
         return 'Humanities'

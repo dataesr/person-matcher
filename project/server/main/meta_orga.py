@@ -2,6 +2,7 @@ import pandas as pd
 import requests
 import os
 import pickle
+from urllib.parse import urlencode
 from project.server.main.rnsr import dump_rnsr_data, format_rnsr
 from project.server.main.siren import format_siren
 from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage
@@ -11,13 +12,14 @@ from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
 from project.server.main.regions import get_region
 from project.server.main.paysage import get_typologie
-from project.server.main.utils import identifier_type
+from project.server.main.utils import identifier_type, get_default_name
 from project.server.main.s3 import upload_object
 from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, build_ed_map, identifier_type, remove_duplicates
 
 logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
+
 
 def get_lists(grid2ror):
     logger.debug('getting list of ids to incorporate ...')
@@ -210,6 +212,7 @@ def get_meta_orga():
                 org['incubateurs'] = incubateurs[e['id']]
             if e.get('id') in startup_links:
                 org['startup_links'] = startup_links[e['id']]
+        data_to_encode = {}
         addresses = org.get('address')
         if org.get('isFrench'):
             if isinstance(addresses, list):
@@ -217,6 +220,14 @@ def get_meta_orga():
                     if isinstance(address.get('postcode'), str):
                         region = get_region(address.get('postcode'))
                         addresses[ik]['region'] = region
+                        if address.get('main'):
+                            data_to_encode('region') = region
+                    if isinstance(address.get('country'), str):
+                        if address.get('main'):
+                            data_to_encode('country') = region
+                    if isinstance(address.get('city'), str):
+                        if address.get('main'):
+                            data_to_encode('cityy') = region
         typologie = get_typologie(org)
         if typologie:
             org.update(typologie)
@@ -228,6 +239,16 @@ def get_meta_orga():
                 pass
             else:
                 logger.debug(f"no address for {org['id']}")
+        panel_erc= get_panel_erc(org)
+        if panel_erc:
+            org['panel_erc'] = panel_erc
+        for k in ['id', 'typologie_1', 'typologie_2']:
+            if org.get(k):
+                data_to_encode[k] = elt[k]
+        if 'label' in org:
+            default_label = get_default_name(org['label'])
+            data_to_encode['label'] = default_label
+        org['encoded_key'] = urlencode(data_to_encode)
 
     os.system('rm -rf /upw_data/scanr/orga_ref/organizations-v2.jsonl')
     to_jsonl(full_data, '/upw_data/scanr/orga_ref/organizations-v2.jsonl')

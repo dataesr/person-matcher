@@ -233,16 +233,20 @@ def test(project_id):
     return get_participations(p, orga_map)
 
 def get_participations(project, orga_map):
-    FIELDS_IN_PART = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'role', 'funding', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
+    FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
+    FIELDS_IN_PART_PROJ = ['role', 'funding']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
             if isinstance(p.get('structure'), dict):
                 new_part = {}
                 # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
-                for f in FIELDS_IN_PART:
+                for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
+                for f in FIELDS_IN_PART_PROJ:
+                    if f in p:
+                        new_part[f'participant_{f}'] = p[f]
                 if new_part and new_part.get('participant_id'):
                     if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
                         participations.append(new_part)
@@ -251,9 +255,12 @@ def get_participations(project, orga_map):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
                             new_part = {}
                             current_part = get_orga(orga_map, inst['structure'])
-                            for f in FIELDS_IN_PART:
+                            for f in FIELDS_IN_PART_STRUCT:
                                 if f in current_part:
                                     new_part[f'participant_{f}'] = current_part[f]
+                            for f in FIELDS_IN_PART_PROJ:
+                                if f in p:
+                                    new_part[f'participant_{f}'] = p[f]
                             if new_part and new_part.get('participant_id'):
                                 if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
                                     participations.append(new_part)
