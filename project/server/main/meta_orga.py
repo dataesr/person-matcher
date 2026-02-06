@@ -20,6 +20,12 @@ logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
 
+def get_panel_erc(elt):
+    if isinstance(elt.get('activities'), list):
+        for a in elt['activities']:
+            if a.get('type') == 'panel_erc':
+                return a
+    return  {}
 
 def get_lists(grid2ror):
     logger.debug('getting list of ids to incorporate ...')
@@ -221,13 +227,13 @@ def get_meta_orga():
                         region = get_region(address.get('postcode'))
                         addresses[ik]['region'] = region
                         if address.get('main'):
-                            data_to_encode('region') = region
+                            data_to_encode['region'] = region
                     if isinstance(address.get('country'), str):
                         if address.get('main'):
-                            data_to_encode('country') = region
+                            data_to_encode['country'] = region
                     if isinstance(address.get('city'), str):
                         if address.get('main'):
-                            data_to_encode('cityy') = region
+                            data_to_encode['city'] = region
         typologie = get_typologie(org)
         if typologie:
             org.update(typologie)
@@ -244,7 +250,7 @@ def get_meta_orga():
             org['panel_erc'] = panel_erc
         for k in ['id', 'typologie_1', 'typologie_2']:
             if org.get(k):
-                data_to_encode[k] = elt[k]
+                data_to_encode[k] = org[k]
         if 'label' in org:
             default_label = get_default_name(org['label'])
             data_to_encode['label'] = default_label
