@@ -250,6 +250,11 @@ def get_participations(project, orga_map):
                 if new_part and new_part.get('participant_id'):
                     if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
                         participations.append(new_part)
+                nb_tutelles = 0
+                if isinstance(p['structure'].get('institutions'), list):
+                    for inst in p['structure'].get('institutions'):
+                        if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
+                            nb_tutelles += 1
                 if isinstance(p['structure'].get('institutions'), list):
                     for inst in p['structure'].get('institutions'):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
@@ -260,7 +265,13 @@ def get_participations(project, orga_map):
                                     new_part[f'participant_{f}'] = current_part[f]
                             for f in FIELDS_IN_PART_PROJ:
                                 if f in p:
-                                    new_part[f'participant_{f}'] = p[f]
+                                    if f not in ['funding']:
+                                        new_part[f'participant_{f}'] = p[f]
+                                    if f == 'funding':
+                                        new_part['participant_funding_labo'] = p[f]
+                                        new_part['participant_funding_nb_split'] = nb_tutelles
+                                        if p.get('funding_split_by_supervisors'):
+                                            new_part[f'participant_{f}'] = float(p[f]) / float(nb_tutelles)
                             if new_part and new_part.get('participant_id'):
                                 if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
                                     participations.append(new_part)
