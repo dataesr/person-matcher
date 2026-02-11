@@ -89,8 +89,8 @@ def get_orga_map():
         if res.get('status') == 'valid':
             res['status'] = 'active'
         assert(res.get('status') in ['active', 'old'])
-        if isinstance(e.get('address'), list):
-            main_address = get_main_address(e['address'])
+        if isinstance(elt.get('address'), list):
+            main_address = get_main_address(elt['address'])
             res['mainAddress'] = main_address
         if 'label' in res:
             fr_label = get_name_by_lang(res['label'], 'fr')
