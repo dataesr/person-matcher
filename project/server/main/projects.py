@@ -234,22 +234,24 @@ def test(project_id):
 
 def get_participations(project, orga_map):
     FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
-    FIELDS_IN_PART_PROJ = ['role', 'funding']
+    FIELDS_IN_PART_PROJ = ['role', 'funding', 'id']
     participations = []
     if isinstance(project.get('participants', []), list):
         for p in project['participants']:
             if isinstance(p.get('structure'), dict):
                 new_part = {}
-                # for e in ['id', 'kind', 'label', 'acronym', 'status', 'institutions', 'parents']
                 for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
                 for f in FIELDS_IN_PART_PROJ:
                     if f in p:
-                        new_part[f'participant_{f}'] = p[f]
-                if new_part and new_part.get('participant_id'):
-                    if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
-                        participations.append(new_part)
+                        new_part[f'participation_{f}'] = p[f]
+                if 'participation_id' not in new_part:
+                    logger.debug(f'no participation_id for {project}')
+                new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id'] 
+                if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
+                    participations.append(new_part)
+                # ajout des participations des tutelles
                 nb_tutelles = 0
                 if isinstance(p['structure'].get('institutions'), list):
                     for inst in p['structure'].get('institutions'):
@@ -265,18 +267,10 @@ def get_participations(project, orga_map):
                                     new_part[f'participant_{f}'] = current_part[f]
                             for f in FIELDS_IN_PART_PROJ:
                                 if f in p:
-                                    if f not in ['funding']:
-                                        new_part[f'participant_{f}'] = p[f]
-                                    if f == 'funding':
-                                        new_part['participant_funding_labo'] = p[f]
-                                        new_part['participant_funding_nb_split'] = nb_tutelles
-                                        if p.get('funding_split_by_supervisors'):
-                                            new_part[f'participant_{f}'] = float(p[f]) / float(nb_tutelles)
-                            if new_part and new_part.get('participant_id'):
-                                if new_part['participant_id'] not in [k['participant_id'] for k in participations]:
-                                    participations.append(new_part)
-    part_ids = [k['participant_id'] for k in participations]
-    assert(len(part_ids) == len(set(part_ids)))
+                                    new_part[f'participation_{f}'] = p[f]
+                            new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id'] 
+                            if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
+                                participations.append(new_part)
     for part in participations:
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
             if f in project:

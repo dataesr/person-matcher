@@ -220,20 +220,18 @@ def get_meta_orga():
                 org['startup_links'] = startup_links[e['id']]
         data_to_encode = {}
         addresses = org.get('address')
-        if org.get('isFrench'):
-            if isinstance(addresses, list):
-                for ik, address in enumerate(addresses):
+        if isinstance(addresses, list):
+            for ik, address in enumerate(addresses):
+                if address.get('main'):
                     if isinstance(address.get('postcode'), str):
-                        region = get_region(address.get('postcode'))
-                        addresses[ik]['region'] = region
-                        if address.get('main'):
+                        if org.get('isFrench'):
+                            region = get_region(address.get('postcode'))
+                            addresses[ik]['region'] = region
                             data_to_encode['region'] = region
                     if isinstance(address.get('country'), str):
-                        if address.get('main'):
-                            data_to_encode['country'] = region
+                        data_to_encode['country'] = address['country']
                     if isinstance(address.get('city'), str):
-                        if address.get('main'):
-                            data_to_encode['city'] = region
+                        data_to_encode['city'] = address['city']
         typologie = get_typologie(org)
         if typologie:
             org.update(typologie)
