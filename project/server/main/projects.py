@@ -240,6 +240,7 @@ def get_participations(project, orga_map):
         for p in project['participants']:
             if isinstance(p.get('structure'), dict):
                 new_part = {}
+                new_part['participation_structure_accueil'] = True
                 for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
@@ -261,6 +262,7 @@ def get_participations(project, orga_map):
                     for inst in p['structure'].get('institutions'):
                         if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
                             new_part = {}
+                            new_part['participation_structure_accueil'] = False
                             current_part = get_orga(orga_map, inst['structure'])
                             for f in FIELDS_IN_PART_STRUCT:
                                 if f in current_part:
@@ -268,6 +270,9 @@ def get_participations(project, orga_map):
                             for f in FIELDS_IN_PART_PROJ:
                                 if f in p:
                                     new_part[f'participation_{f}'] = p[f]
+                            new_part['project_ignore_total_budget'] = False # si un meme participant apparait plusieurs fois via plusieurs participations, il ne faut compter qu'une seule fois le financement global
+                            if new_part['participant_id'] in [k['participant_id'] for k in participations]:
+                                new_part['project_ignore_total_budget'] = True
                             new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id'] 
                             if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
                                 participations.append(new_part)
@@ -275,6 +280,8 @@ def get_participations(project, orga_map):
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
             if f in project:
                 part[f'project_{f}']=project[f]
+                if f in ['budgetTotal', 'budgetFinanced'] and part.get('project_ignore_total_budget') is True:
+                    part[f'project_{f}'] = 0
         if isinstance(project.get('action'), dict) and isinstance(project['action'].get('label', {}).get('default'), str):
             part['project_action'] = project['action'].get('label', {}).get('default')
         if isinstance(project.get('label'), dict):
@@ -314,7 +321,21 @@ def get_participations(project, orga_map):
                     new_address[f] = address[f]
             if new_address:
                 part['address'] = new_address
+    # il faut s'assurer qu'un meme participant a tj le meme role pour toutes les participations d'un projet donné
+    coordinator_map = {}
     for part in participations:
+        current_key = part.get('participant_id', '_')+'###'+part.get('project_id')
+        if current_key not in coordinator_map:
+            coordinator_map[current_key] = False
+        if part.get('participation_role') in ['coordinator', 'pi', 'co-pi']:
+            # pi et co-pi pour ERC, assimilé à coordinateur
+            coordinator_map[current_key] = True
+    for part in participations:
+        current_key = part.get('participant_id', '_')+'###'+part.get('project_id')
+        if current_key in coordinator_map:
+            part['participation_is_coordinator'] = coordinator_map[current_key]
+        if 'participation_role' in part:
+            del part['participation_role'] # champ retiré pour éviter toute confusion car le role est re-calculé en cas de multi-participation, cf valeur dans participation_is_coordinator
         part['co_partners_fr_labs'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
         part['co_partners_fr_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
         part['co_partners_foreign_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_encoded_key')]))
