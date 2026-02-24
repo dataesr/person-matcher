@@ -252,6 +252,9 @@ def get_meta_orga():
         if 'label' in org:
             default_label = get_default_name(org['label'])
             data_to_encode['label'] = default_label
+        if 'acronym' in org:
+            default_acronym = get_default_name(org['acronym'])
+            data_to_encode['acronym'] = default_acronym
         org['encoded_key'] = urlencode(data_to_encode)
 
     os.system('rm -rf /upw_data/scanr/orga_ref/organizations-v2.jsonl')
