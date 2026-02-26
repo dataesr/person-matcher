@@ -3,7 +3,7 @@ import requests
 import os
 import pickle
 from urllib.parse import urlencode
-from project.server.main.rnsr import dump_rnsr_data, format_rnsr
+from project.server.main.rnsr import dump_rnsr_data, format_rnsr, dump_rnsr_data_v2
 from project.server.main.siren import format_siren
 from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage
 from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
@@ -145,7 +145,9 @@ def get_meta_orga():
     dump_full_paysage()
     dump_ror_data()
     corresp_paysage = get_correspondance_paysage()
-    dump_rnsr_data(500)
+    #dump_rnsr_data(500)
+    rnsr_args= {}
+    dump_rnsr_data_v2(rnsr_args)
 
     grid2ror = get_grid2ror()
 
@@ -236,7 +238,7 @@ def get_meta_orga():
         if typologie:
             org.update(typologie)
         if org.get('isFrench'):
-            if isinstance(org['address'], list) and len(org['address'])>0:
+            if isinstance(org.get('address'), list) and len(org['address'])>0:
                 #if org['address'][0].get('country') != 'France':
                 #    logger.debug(f"correct country for {org['id']} from {org['address'][0].get('country')} to France")
                 #org['address'][0]['country'] = 'France'

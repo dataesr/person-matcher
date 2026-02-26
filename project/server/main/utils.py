@@ -120,7 +120,7 @@ def get_co_occurences(my_list, my_field):
     return None
 
 def remove_duplicates(x, main_id):
-    natural_id_fields = ['structure', 'relationType', 'fromDate', 'person', 'role', 'firstName', 'lastName']
+    natural_id_fields = ['structure', 'relationType', 'fromDate', 'startDate', 'person', 'role', 'firstName', 'lastName']
     res = []
     already_there = set()
     for e in x:
