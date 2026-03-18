@@ -47,7 +47,8 @@ def get_data_from_idref():
     #logger.debug(f'correspondance idref - orcid : {len(data_orcid)}')
 
     data_id_hal = []
-    id_hal_matches = get_matches('https://data.archives-ouvertes.fr')
+    #id_hal_matches = get_matches('https://data.archives-ouvertes.fr')
+    id_hal_matches = get_matches('https://data.hal.science')
     for r in id_hal_matches:
         idref = r['idref']['value'].split('/')[3]
         id_hal_s = r['ext_id']['value'].split('/')[4].split('#')[0]
@@ -170,3 +171,37 @@ def get_vip():
     pickle.dump(idref_dict, open('/upw_data/idref_dict.pkl', 'wb'))
     logger.debug(f'{len(idref_dict)} vip idref retrieved')
     return idref_dict
+
+def get_rnsr_pids_from_idref():
+    query = """
+    SELECT *
+    WHERE {
+    ?idref <http://data.hal.science.fr/schema/rnsr> ?rnsr.
+    ?idref owl:sameAs ?pid.
+    }
+    """
+    #FILTER(?idref = <http://www.idref.fr/151174822/id>)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    result = sparql.query().convert()
+    pids = {}
+    for d in result['results']['bindings']:
+        idref= d['idref']['value'].split('/')[3]
+        rnsr = d['rnsr']['value']
+        pid = d['pid']['value']
+        if rnsr not in pids:
+            pids[rnsr] = []
+        current_elt = {'id': idref, 'type':'idref'}
+        if current_elt not in pids[rnsr]:
+            pids[rnsr].append(current_elt)
+        if 'hal.science' in pid:
+            hal_id = pid.split('/')[4].replace('#foaf:Organization', '')
+            current_elt = {'id': hal_id, 'type':'hal'}
+            if current_elt not in pids[rnsr]:
+                pids[rnsr].append(current_elt)
+        if 'ror' in pid:
+            ror = pid.split('/')[3].replace('#foaf:Organization', '')
+            current_elt = {'id': ror, 'type':'ror'}
+            if current_elt not in pids[rnsr]:
+                pids[rnsr].append(current_elt)
+    return pids

@@ -101,7 +101,7 @@ def load_orga(args):
     index_name = args.get('index_name')
 
     if args.get('meta'):
-        get_meta_orga()
+        get_meta_orga(args)
         return
 
     if args.get('post_treatment'):

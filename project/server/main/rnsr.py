@@ -17,6 +17,7 @@ from project.server.main.s3 import upload_object
 from project.server.main.export_data_without_tunnel import get_with_retry
 from project.server.main.paysage import get_correspondance_paysage
 from project.server.main.utils import identifier_type
+from project.server.main.vip import get_rnsr_pids_from_idref
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -96,7 +97,7 @@ def dump_rnsr_data(nb_per_page=500):
     os.system(f'cd /upw_data/scanr/orga_ref && rm -rf rnsr.jsonl.gz && gzip -k rnsr.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr.jsonl.gz', destination=f'production/rnsr.jsonl.gz')
 
-def transform(elt, leaders_dict):
+def transform(elt, leaders_dict, pids_from_idref):
     today = str(datetime.today())[0:10]
     new = {}
     new['id'] = elt['id']
@@ -132,6 +133,9 @@ def transform(elt, leaders_dict):
         new['kind'] = [elt['type']]
     new['nature'] = 'Unite propre'
     new['externalIds'] =  [{'id': new['id'], 'type': 'rnsr'}]
+    if new['id'] in pids_from_idref:
+        for pid in pids_from_idref[new['id']]:
+            new['externalIds'].append(pid)
     if isinstance(elt.get('code_numbers'), list):
         for c in elt['code_numbers']:
             new['externalIds'].append({'id': c, 'type': 'label_numero'})
@@ -244,10 +248,11 @@ def dump_rnsr_data_v2(args):
     if args.get('update_rnsr_extract', False):
         get_all_rnsr_data()
     leaders_dict = get_leaders()
+    pids_from_idref = get_rnsr_pids_from_idref()
     df_rnsr = pd.read_json('/upw_data/scanr/orga_ref/rnsr_extract.jsonl', lines=True)
     data = []
     for k in df_rnsr.to_dict(orient='records'):
-        n = transform(k, leaders_dict)
+        n = transform(k, leaders_dict, pids_from_idref)
         data.append(n)
     os.system(f'rm -rf /upw_data/scanr/orga_ref/rnsr-v2.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr-v2.jsonl')

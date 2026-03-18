@@ -5,7 +5,7 @@ import pickle
 from urllib.parse import urlencode
 from project.server.main.rnsr import dump_rnsr_data, format_rnsr, dump_rnsr_data_v2
 from project.server.main.siren import format_siren
-from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage
+from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage, get_main_id_paysage
 from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
@@ -27,7 +27,7 @@ def get_panel_erc(elt):
                 return a
     return  {}
 
-def get_lists(grid2ror):
+def get_lists(grid2ror, corresp_paysage):
     logger.debug('getting list of ids to incorporate ...')
     logger.debug('from pcri projects')
     df_horizon_part = get_ods_data('fr-esr-horizon-projects-entities')
@@ -106,9 +106,9 @@ def get_lists(grid2ror):
                     if len(g)==14:
                         sirets.append(g)
                     if field == 'incubateur_public_id':
-                        incubateurs[str(k['siren_startup'])].append({'structure': g})
+                        incubateurs[str(k['siren_startup'])].append({'structure': get_main_id_paysage(g, corresp_paysage)})
                     if field == 'structures_liees_id':
-                        startup_links[str(k['siren_startup'])].append({'structure': g})
+                        startup_links[str(k['siren_startup'])].append({'structure': get_main_id_paysage(g, corresp_paysage)})
     # projects
     df = pd.read_json('https://scanr-data.s3.gra.io.cloud.ovh.net/production/projects-v2.jsonl.gz', lines=True)
     for e in df.to_dict(orient='records'):
@@ -137,7 +137,7 @@ def get_lists(grid2ror):
     pickle.dump(ans, open('/upw_data/lists.pkl', 'wb'))
     return ans
 
-def get_meta_orga():
+def get_meta_orga(args):
     full_data = []
     
     #paysage
@@ -147,7 +147,7 @@ def get_meta_orga():
     corresp_paysage = get_correspondance_paysage()
     #dump_rnsr_data(500)
     rnsr_args= {}
-    dump_rnsr_data_v2(rnsr_args)
+    dump_rnsr_data_v2(args)
 
     grid2ror = get_grid2ror()
 
@@ -156,7 +156,7 @@ def get_meta_orga():
     logger.debug(f'{len(rnsr_data)} elts from rnsr')
     full_data += rnsr_data
         
-    lists = get_lists(grid2ror)
+    lists = get_lists(grid2ror, corresp_paysage)
         
     #try:
     #    lists = pickle.load(open('/upw_data/lists.pkl', 'rb'))
