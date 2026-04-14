@@ -251,7 +251,16 @@ def dump_rnsr_data_v2(args):
     pids_from_idref = get_rnsr_pids_from_idref()
     df_rnsr = pd.read_json('/upw_data/scanr/orga_ref/rnsr_extract.jsonl', lines=True)
     data = []
-    for k in df_rnsr.to_dict(orient='records'):
+    raw_rnsr = df_rnsr.to_dict(orient='records')
+    for elt in raw_rnsr:
+        if isinstance(elt.get('supervisors'), list):
+            for s in elt['supervisors']:
+                if s['rnsr_key'] not in rnsr_key_struct_dict:
+                    logger.debug(f"{s.get('rnsr_key')} not in rnsr key dict")
+                    logger.debug(s)
+                    logger.debug(elt)
+                    logger.debug('il faut compléter le fichier rnsr_key.jsonl')
+    for k in raw_rnsr:
         n = transform(k, leaders_dict, pids_from_idref)
         data.append(n)
     os.system(f'rm -rf /upw_data/scanr/orga_ref/rnsr-v2.jsonl')
