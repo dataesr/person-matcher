@@ -196,6 +196,7 @@ def load_projects(args):
     os.system(f'cd {MOUNTED_VOLUME}scanr && rm -rf participations_denormalized.jsonl.gz && gzip -k participations_denormalized.jsonl')
     upload_object(container='scanr-data', source = f'{MOUNTED_VOLUME}scanr/participations_denormalized.jsonl.gz', destination='production/participations_denormalized.jsonl.gz')
     load_scanr_projects('/upw_data/scanr/participations_denormalized.jsonl', index_name.replace('project', 'participation'), 500) 
+    save_classif(False, True)
 
 def save_classif(domains, mistral):
     df = pd.read_json('/upw_data/scanr/projects_denormalized.jsonl', lines=True, chunksize=10000)
@@ -241,6 +242,7 @@ def get_participations(project, orga_map):
             if isinstance(p.get('structure'), dict):
                 new_part = {}
                 new_part['participation_structure_accueil'] = True
+                new_part['project_ignore_total_budget'] = False
                 for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
@@ -336,13 +338,46 @@ def get_participations(project, orga_map):
             part['participation_is_coordinator'] = coordinator_map[current_key]
         if 'participation_role' in part:
             del part['participation_role'] # champ retiré pour éviter toute confusion car le role est re-calculé en cas de multi-participation, cf valeur dans participation_is_coordinator
-        part['co_partners_fr_labs'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] == 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
-        part['co_partners_fr_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k['participant_type'] != 'laboratory') and (k.get('participant_isFrench')) and k.get('participant_encoded_key')]))
-        part['co_partners_foreign_inst'] = list(set([k['participant_encoded_key'] for k in participations if (k['participant_id'] != part['participant_id']) and (k.get('participant_isFrench') == False) and k.get('participant_encoded_key')]))
+        # on calcule les co-partenaires
+        co_partners_fr_labs, co_partners_fr_labs_all, co_partners_fr_inst, co_partners_foreign_inst = [], [], [], []
+        for k in participations:
+            if k['participant_id'] == part['participant_id']:
+                continue
+            if not k.get('participant_encoded_key'):
+                continue
+            if k.get('participant_isFrench'):
+                if k.get('participant_type') != 'laboratory':
+                    co_partners_fr_inst.append(k['participant_encoded_key'])
+                if k.get('participant_type') == 'laboratory':
+                    co_partners_fr_labs_all.append(k['participant_encoded_key']) # tous les labos co-partenaires
+                    if isinstance(k.get('participant_institutions'), list):
+                        current_lab_tutelles = [j['structure'] for j in k['participant_institutions'] if j['relationType'] == "établissement tutelle"]
+                        if k['participant_id'] in current_lab_tutelles:
+                            co_partners_fr_labs.append(k['participant_encoded_key']) # seuls les labos de l'institution elle-même
+            elif k.get('participant_isFrench') is False:
+                co_partners_foreign_inst.append(k['participant_encoded_key'])
+        part['co_partners_fr_labs'] = list(set(co_partners_fr_labs))
+        part['co_partners_fr_labs_all'] = list(set(co_partners_fr_labs_all))
+        part['co_partners_fr_inst'] = list(set(co_partners_fr_inst))
+        part['co_partners_foreign_inst'] = list(set(co_partners_foreign_inst))
         try:
             part['participant_isFrench']
         except:
             logger.debug(part)
+    # on ajoute un champ (liste) participant_labo_regions avec les régions des labos, au niveau des tutelles
+    for part in participations:
+        if part.get('participant_type') == 'laboratory':
+            if isinstance(part.get('address'), dict) and part['address'].get('region'):
+                labo_region = part['address'].get('region')
+                part['participant_labo_regions'] = [labo_region] # pour le labo lui-même
+                current_tutelles = [t.get('structure') for t in part.get('participant_institutions') if t['relationType'] == 'établissement tutelle']
+                # on ajoute à chaque tutelle la région du labo
+                for part2 in participations:
+                    if part2['participant_id'] in current_tutelles:
+                        if 'participant_labo_regions' not in part2:
+                            part2['participant_labo_regions'] = []
+                        if labo_region not in part2['participant_labo_regions']:
+                            part2['participant_labo_regions'].append(labo_region)
     return participations
 
 def load_scanr_projects(scanr_output_file_denormalized, index_name, chunksize=50):
