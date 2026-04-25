@@ -245,8 +245,8 @@ def get_participations(project, orga_map):
                 for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
-                        if f == 'institutions':
-                            new_part[f'participant_institutions'] = [s for s in p['structure']['institutions'] if s.get('relationType')=="établissement tutelle"] # on ne garde que les tutelles
+                        if f == 'institutions' and isinstance(p['structure']['institutions'], list):
+                            new_part[f'participant_institutions'] = [s for s in p['structure']['institutions'] if (isinstance(s.get('relationType'), str) and s['relationType']=="établissement tutelle")] # on ne garde que les tutelles
                             # TODO projeter sur les nouveaux paysage ??
                 for f in FIELDS_IN_PART_PROJ:
                     if f in p:
