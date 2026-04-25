@@ -242,10 +242,12 @@ def get_participations(project, orga_map):
             if isinstance(p.get('structure'), dict):
                 new_part = {}
                 new_part['participation_structure_accueil'] = True
-                new_part['project_ignore_total_budget'] = False
                 for f in FIELDS_IN_PART_STRUCT:
                     if f in p['structure']:
                         new_part[f'participant_{f}'] = p['structure'][f]
+                        if f == 'institutions':
+                            new_part[f'participant_institutions'] = [s for s in p['structure']['institutions'] if s.get('relationType')=="établissement tutelle"] # on ne garde que les tutelles
+                            # TODO projeter sur les nouveaux paysage ??
                 for f in FIELDS_IN_PART_PROJ:
                     if f in p:
                         new_part[f'participation_{f}'] = p[f]
@@ -272,17 +274,33 @@ def get_participations(project, orga_map):
                             for f in FIELDS_IN_PART_PROJ:
                                 if f in p:
                                     new_part[f'participation_{f}'] = p[f]
-                            new_part['project_ignore_total_budget'] = False # si un meme participant apparait plusieurs fois via plusieurs participations, il ne faut compter qu'une seule fois le financement global
-                            if new_part['participant_id'] in [k['participant_id'] for k in participations]:
-                                new_part['project_ignore_total_budget'] = True
                             new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id'] 
                             if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
                                 participations.append(new_part)
+    # on parcourt la liste des participations pour calculer les flag
+    # le but est de flagger quand un meme projet apparait avec le même participant ou la même région pour éviter les doubles comptes
+    participant_id_present = []
+    region_present, region_participation_present = [], []
+    for part in participations:
+        part['participant_ignore_total_budget'] = False
+        part['region_ignore_total_budget'] = False
+        part['region_ignore_funding'] = False
+        if part['participant_id'] in participant_id_present: 
+            part['participant_ignore_total_budget'] = True # evite le double compte du budget total si le même participant est listé plusieurs fois
+        participant_id_present.append(part['participant_id'])
+        if isinstance(part.get('address'), dict) and isinstance(part['address'].get('region'), str):
+            if part['address'].get('region') in region_present:
+                part['region_ignore_total_budget'] = True # evite le double compte du budget total si la meme region apparait plusieurs fois
+            region_present.append(part['address'].get('region'))
+            region_participation = part['address'].get('region', 'noregion') + '###' + new_part['participation_id']
+            if region_participation in region_participation_present:
+                part['region_ignore_funding'] = True # evite le double compte du budget funding si la meme region apparait plusieurs fois dans la même participation
+            region_participation_present.append(region_participation)
     for part in participations:
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
             if f in project:
                 part[f'project_{f}']=project[f]
-                if f in ['budgetTotal', 'budgetFinanced'] and part.get('project_ignore_total_budget') is True:
+                if f in ['budgetTotal', 'budgetFinanced'] and part.get('participant_ignore_total_budget') is True:
                     part[f'project_{f}'] = 0
         if isinstance(project.get('action'), dict) and isinstance(project['action'].get('label', {}).get('default'), str):
             part['project_action'] = project['action'].get('label', {}).get('default')
