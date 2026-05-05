@@ -8,7 +8,7 @@ from project.server.main.config import ES_LOGIN_BSO_BACK, ES_PASSWORD_BSO_BACK, 
 from project.server.main.elastic import reset_index_scanr, refresh_index
 from project.server.main.scanr2 import get_publications_for_project, get_domains_from_publications
 from project.server.main.export_data_without_tunnel import dump_from_http
-from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage
+from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage, build_successeur_map, get_successeur
 from project.server.main.entity_fishing import get_entity_fishing
 from project.server.main.mistral import get_mistral_answer
 
@@ -74,6 +74,7 @@ def load_projects(args):
         os.system('rm -rf /upw_data/scanr/participations_denormalized.jsonl')
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
         corresp_paysage = get_correspondance_paysage()
+        successeur_map = build_successeur_map()
         for ix, p in enumerate(projects):
             if ix % 100 == 0:
                 logger.debug(f'{ix}/{len(projects)} projects')
@@ -179,7 +180,7 @@ def load_projects(args):
             if classification:
                 projects[ix]['classification'] = classification
                 projects[ix]['classification']['primary_field'] = clean_discipline(classification['primary_field'])
-            formatted_participations = get_participations(projects[ix], orga_map)
+            formatted_participations = get_participations(projects[ix], orga_map, successeur_map)
             if formatted_participations:
                 participations += formatted_participations
                 projects[ix]['participants_id_search'] = list(set([u['participant_id'] for u in formatted_participations if u.get('participant_id')]))
@@ -233,7 +234,16 @@ def test(project_id):
             break
     return get_participations(p, orga_map)
 
-def get_participations(project, orga_map):
+def get_participations(project, orga_map, successeur_map):
+    participations = get_participations_simple(project, orga_map, successeur_map)
+    participations = add_flag(participations)
+    participations = enrich_participations(participations)
+    participations = set_coordinator(participations)
+    participations = compute_co_partners(participations)
+    #participations = add_region(participations)
+    return participations
+
+def get_participations_old(project, orga_map):
     FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
     FIELDS_IN_PART_PROJ = ['role', 'funding', 'id']
     participations = []
@@ -410,3 +420,195 @@ def load_scanr_projects(scanr_output_file_denormalized, index_name, chunksize=50
     os.system(elasticimport)
     refresh_index(index_name)
 
+def get_participations_simple(project, orga_map, successeur_map):
+    FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
+    FIELDS_IN_PART_PROJ = ['role', 'funding', 'id']
+    participations = []
+    if isinstance(project.get('participants', []), list):
+        for p in project['participants']:
+            if isinstance(p.get('structure'), dict):
+                new_part = {}
+                new_part['participation_structure_accueil'] = True
+                for f in FIELDS_IN_PART_STRUCT:
+                    if f in p['structure']:
+                        new_part[f'participant_{f}'] = p['structure'][f]
+                        if f == 'institutions' and isinstance(p['structure']['institutions'], list):
+                            new_part[f'participant_institutions'] = [s for s in p['structure']['institutions'] if (isinstance(s.get('relationType'), str) and s['relationType']=="établissement tutelle")] # on ne garde que les tutelles
+                for f in FIELDS_IN_PART_PROJ:
+                    if f in p:
+                        new_part[f'participation_{f}'] = p[f]
+                if 'participation_id' not in new_part:
+                    logger.debug(f'no participation_id for {project}')
+                new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id']
+                if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
+                    participations.append(new_part)
+                # ajout des participations des tutelles
+                nb_tutelles = 0
+                if isinstance(p['structure'].get('institutions'), list):
+                    for inst in p['structure'].get('institutions'):
+                        if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
+                            nb_tutelles += 1
+                if isinstance(p['structure'].get('institutions'), list):
+                    for inst in p['structure'].get('institutions'):
+                        if inst.get('relationType') in ['établissement tutelle'] and inst.get('structure'):
+                            new_part = {}
+                            new_part['participation_structure_accueil'] = False
+                            part_id_successeur = get_successeur(inst['structure'], successeur_map)
+                            #current_part = get_orga(orga_map, inst['structure'])
+                            current_part = get_orga(orga_map, part_id_successeur)
+                            if part_id_successeur != inst['structure']:
+                                logger.debug(f"using successeur for {inst['structure']} : {part_id_successeur}")
+                            for f in FIELDS_IN_PART_STRUCT:
+                                if f in current_part:
+                                    new_part[f'participant_{f}'] = current_part[f]
+                            for f in FIELDS_IN_PART_PROJ:
+                                if f in p:
+                                    new_part[f'participation_{f}'] = p[f]
+                            new_part['participant_key_id'] = new_part.get('participant_id', 'no_participant_id') + '###' + new_part['participation_id']
+                            if new_part['participant_key_id'] not in [k['participant_key_id'] for k in participations]:
+                                participations.append(new_part)
+    return participations
+
+def add_flag(participations):
+    # on parcourt la liste des participations pour calculer les flag
+    # le but est de flagger quand un meme projet apparait avec le même participant ou la même région pour éviter les doubles comptes
+    participant_id_present = []
+    region_present, region_participation_present = [], []
+    for part in participations:
+        part['participant_ignore_total_budget'] = False
+        part['region_ignore_total_budget'] = False
+        part['region_ignore_funding'] = False
+        if part['participant_id'] in participant_id_present:
+            part['participant_ignore_total_budget'] = True # evite le double compte du budget total si le même participant est listé plusieurs fois
+        participant_id_present.append(part['participant_id'])
+        if isinstance(part.get('address'), dict) and isinstance(part['address'].get('region'), str):
+            if part['address'].get('region') in region_present:
+                part['region_ignore_total_budget'] = True # evite le double compte du budget total si la meme region apparait plusieurs fois
+            region_present.append(part['address'].get('region'))
+            region_participation = part['address'].get('region', 'noregion') + '###' + new_part['participation_id']
+            if region_participation in region_participation_present:
+                part['region_ignore_funding'] = True # evite le double compte du budget funding si la meme region apparait plusieurs fois dans la même participation
+            region_participation_present.append(region_participation)
+    return participations
+
+def enrich_participations(participations):
+    for part in participations:
+        for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
+            if f in project:
+                part[f'project_{f}']=project[f]
+        if isinstance(project.get('action'), dict) and isinstance(project['action'].get('label', {}).get('default'), str):
+            part['project_action'] = project['action'].get('label', {}).get('default')
+        if isinstance(project.get('label'), dict):
+            for lan in ['default', 'en', 'fr']:
+                if isinstance(project['label'].get(lan), str):
+                    part['project_label'] = project['label'][lan]
+                    break
+        if ('project_budgetTotal' not in part) or (part.get('project_budgetTotal') != part.get('project_budgetTotal')):
+            if ('project_budgetFinanced' in part) and (part.get('project_budgetFinanced')==part.get('project_budgetFinanced')):
+                part['project_budgetTotal'] = part['project_budgetFinanced']
+        part['participant_type'] = 'other'
+        if 'participant_kind' in part:
+            if isinstance(part.get('participant_kind'), list) and ('Structure de recherche' in part['participant_kind']) and isinstance(part.get('participant_id'), str) and (contient_lettre(part['participant_id'])):
+                part['participant_type'] = 'laboratory'
+            else:
+                part['participant_type'] = 'institution'
+        if part.get('participant_isFrench'):
+            pass
+        else:
+            part['participant_isFrench'] = False
+        current_part = get_orga(orga_map, part['participant_id'])
+        if current_part and isinstance(current_part.get('mainAddress'), dict):
+            address = current_part.get('mainAddress')
+            new_address = {}
+            if isinstance(address.get('gps'), dict):
+                new_address['gps'] = address['gps']
+                if address['gps'].get('lat') and address['gps'].get('lon'):
+                    if 'participant_id_name_default' not in part:
+                        logger.debug('NO ID NAME ??? for ')
+                        logger.debug(part)
+                    new_address['gps_id_name'] = str(address['gps']['lat'])+'_'+str(address['gps']['lon'])+'_'+part['participant_id']+'_'+part.get('participant_id_name_default', 'noname')
+            for f in ['address', 'postcode', 'city', 'country', 'region']:
+                if isinstance(address.get(f), str):
+                    new_address[f] = address[f]
+            if new_address:
+                part['address'] = new_address
+        if isinstance(part.get('address'), dict) and part['address'].get('region'):
+            part['participant_region'] = part['address'].get('region')
+    return participations
+
+def set_coordinator(participations):
+    # il faut s'assurer qu'un meme participant a tj le meme role pour toutes les participations d'un projet donné
+    coordinator_map = {}
+    for part in participations:
+        current_key = part.get('participant_id', '_')+'###'+part.get('project_id')
+        if current_key not in coordinator_map:
+            coordinator_map[current_key] = False
+        if part.get('participation_role') in ['coordinator', 'pi', 'co-pi']:
+            # pi et co-pi pour ERC, assimilé à coordinateur
+            coordinator_map[current_key] = True
+    for part in participations:
+        current_key = part.get('participant_id', '_')+'###'+part.get('project_id')
+        if current_key in coordinator_map:
+            part['participation_is_coordinator'] = coordinator_map[current_key]
+        if 'participation_role' in part:
+            del part['participation_role'] # champ retiré pour éviter toute confusion car le role est re-calculé en cas de multi-participation, cf valeur dans participation_is_coordinator
+    return participations
+
+def compute_co_partners(participations):
+    for part in participations:
+        if part['participant_id'] !='t4SA4':
+            continue
+        co_partners_fr_labs, co_partners_fr_labs_region, co_partners_fr_labs_all = [], [], []
+        co_partners_fr_inst, co_partners_foreign_inst = [], [], []
+        for k in participations:
+            if k['participant_id'] == part['participant_id']:
+                # le participant n'est pas co-partenaire avec lui-même
+                continue
+            if not k.get('participant_encoded_key'):
+                continue
+            if k.get('participant_status') != 'active':
+                continue
+            if k.get('participant_isFrench'):
+                if k.get('participant_type') != 'laboratory':
+                    co_partners_fr_inst.append(k['participant_encoded_key'])
+                if k.get('participant_type') == 'laboratory':
+                    co_partners_fr_labs_all.append(k['participant_encoded_key']) # tous les labos co-partenaires
+                    if isinstance(k.get('participant_institutions'), list):
+                        current_lab_tutelles = [j['structure'] for j in k['participant_institutions'] if j['relationType'] == "établissement tutelle"]
+                        # k is a labo
+                        # si part['participant_id'] est dans les tutelles du labo k (donc dans current_lab_tutelles) on gare k dans les labo de l'étab
+                        if part['participant_id'] in current_lab_tutelles:
+                            co_partners_fr_labs.append(k['participant_encoded_key']) # seuls les labos de l'institution elle-même
+                            co_partners_fr_labs_region.append(k['participant_region'])
+            elif k.get('participant_isFrench') is False:
+                co_partners_foreign_inst.append(k['participant_encoded_key'])
+        part['co_partners_fr_labs'] = list(set(co_partners_fr_labs))
+        part['co_partners_fr_labs_region'] = list(set(co_partners_fr_labs_region))
+        part['co_partners_fr_labs_all'] = list(set(co_partners_fr_labs_all))
+        part['co_partners_fr_inst'] = list(set(co_partners_fr_inst))
+        part['co_partners_foreign_inst'] = list(set(co_partners_foreign_inst))
+        # un champ supplémentaire avec les régions des labos + la région de l'étab
+        participant_region_with_labs = part['co_partners_fr_labs_region']
+        if part.get('participant_region') and part.get('participant_region') not in participant_region_with_labs:
+            participant_region_with_labs.append(part.get('participant_region'))
+        part['participant_region_with_labs'] = participant_region_with_labs
+
+    return participations
+
+def add_region(participations):
+    # on ajoute un champ (liste) participant_labo_regions avec les régions des labos, au niveau des tutelles
+    for part in participations:
+        if isinstance(part.get('address'), dict) and part['address'].get('region'):
+            part['participant_region'] = part['address'].get('region')
+        if part.get('participant_type') == 'laboratory':
+            if part.get('participant_region'):
+                labo_region = part['participant_region']
+                part['participant_labos'] = [{'laboratory_id': part['participant_id'], 'laboratory_region': part['participant_region']}] # pour le labo lui-même
+                current_tutelles = [t.get('structure') for t in part.get('participant_institutions') if t['relationType'] == 'établissement tutelle']
+                # on ajoute à chaque tutelle la région du labo
+                for part2 in participations:
+                    if part2['participant_id'] in current_tutelles:
+                        if 'participant_labos' not in part2:
+                            part2['participant_labos'] = []
+                        part2['participant_labos'].append({'laboratory_id': part['participant_id'], 'laboratory_region': labo_region})
+    return participations

@@ -19,6 +19,21 @@ PAYSAGE_API_KEY = os.getenv('PAYSAGE_API_KEY')
 
 PAYSAGE_CAT_TO_KEEP = set(pd.read_csv('categories_for_scanr.csv')['id'].to_list())
 
+def build_successeur_map():
+    successeur_map = {}
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
+    for e in df_paysage.to_dict(orient='records'):
+        for r in e['relations']:
+            if r.get('relationTag') and r['relationTag']=="structure-predecesseur":
+                if r['relatedObjectId'] == e['id']:
+                    successeur_map[e['id']] = r['resourceId']
+    return successeur_map
+
+def get_successeur(e, successeur_map):
+    if e not in successeur_map:
+        return e
+    return get_successeur(successeur_map[e])
+
 def get_typologie(elt):
     CAT_UNIV = [
             {'id': 'LzIYN', 'name': 'Université scientifique et/ou médicale'},
