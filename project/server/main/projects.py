@@ -113,7 +113,9 @@ def load_projects(args):
                 if part_id and (not part_id.startswith('pic')):
                     is_identified=True
                     part_id = get_main_id_paysage(part_id, corresp_paysage)
-                    denormalized_organization = get_orga(orga_map, part_id)
+                    # on projette sur les structures actuelles
+                    part_id_successeur = get_successeur(part_id, successeur_map)
+                    denormalized_organization = get_orga(orga_map, part_id_successeur)
                     part['structure'] = denormalized_organization
                     denormalized_affiliations.append(denormalized_organization)
                 participant_key = f'{participant_name}---{is_identified}'
@@ -237,7 +239,7 @@ def test(project_id):
 def get_participations(project, orga_map, successeur_map):
     participations = get_participations_simple(project, orga_map, successeur_map)
     participations = add_flag(participations)
-    participations = enrich_participations(participations)
+    participations = enrich_participations(participations, project, orga_map)
     participations = set_coordinator(participations)
     participations = compute_co_partners(participations)
     #participations = add_region(participations)
@@ -491,7 +493,7 @@ def add_flag(participations):
             region_participation_present.append(region_participation)
     return participations
 
-def enrich_participations(participations):
+def enrich_participations(participations, project, orga_map):
     for part in participations:
         for f in ['id', 'type', 'year', 'budgetTotal', 'budgetFinanced', 'classification', 'instrument', 'pilier_global_name']:
             if f in project:
@@ -556,10 +558,8 @@ def set_coordinator(participations):
 
 def compute_co_partners(participations):
     for part in participations:
-        if part['participant_id'] !='t4SA4':
-            continue
         co_partners_fr_labs, co_partners_fr_labs_region, co_partners_fr_labs_all = [], [], []
-        co_partners_fr_inst, co_partners_foreign_inst = [], [], []
+        co_partners_fr_inst, co_partners_foreign_inst = [], []
         for k in participations:
             if k['participant_id'] == part['participant_id']:
                 # le participant n'est pas co-partenaire avec lui-même
@@ -579,7 +579,8 @@ def compute_co_partners(participations):
                         # si part['participant_id'] est dans les tutelles du labo k (donc dans current_lab_tutelles) on gare k dans les labo de l'étab
                         if part['participant_id'] in current_lab_tutelles:
                             co_partners_fr_labs.append(k['participant_encoded_key']) # seuls les labos de l'institution elle-même
-                            co_partners_fr_labs_region.append(k['participant_region'])
+                            if k.get('participant_region'):
+                                co_partners_fr_labs_region.append(k['participant_region'])
             elif k.get('participant_isFrench') is False:
                 co_partners_foreign_inst.append(k['participant_encoded_key'])
         part['co_partners_fr_labs'] = list(set(co_partners_fr_labs))

@@ -32,7 +32,7 @@ def build_successeur_map():
 def get_successeur(e, successeur_map):
     if e not in successeur_map:
         return e
-    return get_successeur(successeur_map[e])
+    return get_successeur(successeur_map[e], successeur_map)
 
 def get_typologie(elt):
     CAT_UNIV = [
