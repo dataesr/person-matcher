@@ -83,10 +83,10 @@ def parse_address(text):
         if normalize(city_found) in postal_city_match:
             postal_start = postal_city_match[normalize(city_found)]
             if postcode is None:
-                logger.debug(f"new postcode found {postcode} for city {city_found} | expect {postal_start} in address {text}")
+                #logger.debug(f"new postcode found {postcode} for city {city_found} | expect {postal_start} in address {text}")
                 pass
             elif postal_start != postcode[0:2]:
-                #logger.debug(f"erreur postcode found {postcode} for city {city_found} | expect {postal_start} in address {text}")
+                logger.debug(f"erreur postcode found {postcode} for city {city_found} | expect {postal_start} in address {text}")
                 pass
             # using the new postcode ('default 000 suffix)
             postcode = postal_start+'000'
