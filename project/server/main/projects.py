@@ -558,12 +558,22 @@ def set_coordinator(participations):
 
 def compute_co_partners(participations):
     for part in participations:
-        co_partners_fr_labs, co_partners_fr_labs_region, co_partners_fr_labs_all = [], [], []
+        co_partners_fr_labs, co_partners_fr_labs_all = [], []
         co_partners_fr_inst, co_partners_foreign_inst = [], []
+        participant_region_with_labs = []
         for k in participations:
+            k_is_sub_institution = False
             if k['participant_id'] == part['participant_id']:
                 # le participant n'est pas co-partenaire avec lui-même
                 continue
+            # pour lister les sous-institutions (labo mais aussi délégation régionale - k n'est pas forcément laboratory)
+            if isinstance(k.get('participant_institutions'), list):
+                current_lab_tutelles = [j['structure'] for j in k['participant_institutions'] if j['relationType'] == "établissement tutelle"]
+                # si part['participant_id'] est dans les tutelles de k (donc dans current_lab_tutelles) on garde k dans les labo de l'étab
+                if part['participant_id'] in current_lab_tutelles:
+                    k_is_sub_institution = True
+                    if k.get('participant_region'):
+                        participant_region_with_labs.append(k['participant_region'])
             if not k.get('participant_encoded_key'):
                 continue
             if k.get('participant_status') != 'active':
@@ -573,26 +583,19 @@ def compute_co_partners(participations):
                     co_partners_fr_inst.append(k['participant_encoded_key'])
                 if k.get('participant_type') == 'laboratory':
                     co_partners_fr_labs_all.append(k['participant_encoded_key']) # tous les labos co-partenaires
-                    if isinstance(k.get('participant_institutions'), list):
-                        current_lab_tutelles = [j['structure'] for j in k['participant_institutions'] if j['relationType'] == "établissement tutelle"]
-                        # k is a labo
-                        # si part['participant_id'] est dans les tutelles du labo k (donc dans current_lab_tutelles) on gare k dans les labo de l'étab
-                        if part['participant_id'] in current_lab_tutelles:
-                            co_partners_fr_labs.append(k['participant_encoded_key']) # seuls les labos de l'institution elle-même
-                            if k.get('participant_region'):
-                                co_partners_fr_labs_region.append(k['participant_region'])
+                    if k_is_sub_institution:
+                        co_partners_fr_labs.append(k['participant_encoded_key']) # seuls les labos de l'institution elle-même
             elif k.get('participant_isFrench') is False:
                 co_partners_foreign_inst.append(k['participant_encoded_key'])
         part['co_partners_fr_labs'] = list(set(co_partners_fr_labs))
-        part['co_partners_fr_labs_region'] = list(set(co_partners_fr_labs_region))
+        #part['co_partners_fr_labs_region'] = list(set(co_partners_fr_labs_region))
         part['co_partners_fr_labs_all'] = list(set(co_partners_fr_labs_all))
         part['co_partners_fr_inst'] = list(set(co_partners_fr_inst))
         part['co_partners_foreign_inst'] = list(set(co_partners_foreign_inst))
         # un champ supplémentaire avec les régions des labos + la région de l'étab
-        participant_region_with_labs = part['co_partners_fr_labs_region']
         if part.get('participant_region') and part.get('participant_region') not in participant_region_with_labs:
             participant_region_with_labs.append(part.get('participant_region'))
-        part['participant_region_with_labs'] = participant_region_with_labs
+        part['participant_region_with_labs'] = list(set(participant_region_with_labs))
 
     return participations
 

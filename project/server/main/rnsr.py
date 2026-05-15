@@ -177,6 +177,9 @@ def transform(elt, leaders_dict, pids_from_idref):
                 new_inst['startDate'] = s['start_date']
             if isinstance(s.get('end_date'), str):
                 new_inst['endDate'] = s['end_date']
+                if new_inst['endDate'] < today:
+                    # ignore anciennes tutelles
+                    continue
             if isinstance(s.get('supervision_type'), str):
                 new_inst['relationType'] = s.get('supervision_type')
             new_inst['rnsr_key'] = s.get('rnsr_key')
