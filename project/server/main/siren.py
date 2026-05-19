@@ -172,7 +172,7 @@ def format_siren(siren_list, siret_list, existing_siren=[]):
             address['country'] = 'France'
         full_add = f"{e['numeroVoieEtablissement']} {e['typeVoieEtablissement']} {e['libelleVoieEtablissement']}".strip()
         if full_add:
-            address['address'] = full_add
+            address['address'] = full_add.replace('None', '').replace('  ', ' ').strip()
         if isinstance(e.get('lat'), float) and isinstance(e.get('lon'), float):
             address['gps'] = {'lat': e['lat'], 'lon': e['lon']}
         new_elt['address'] = [address]
