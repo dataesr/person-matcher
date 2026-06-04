@@ -33,6 +33,36 @@ CURRENT_YEAR = date.today().year
 LIMIT_GET_PUBLICATIONS_AUTHORS = 10000
 LIMIT_GET_PUBLICATIONS_PROJECT = 500
 
+def get_all_idrefs_from_patents():
+    logger.debug('from patents')
+    idrefs_from_patents = {}
+    download_object(container='patstat', filename=f'fam_final_json.jsonl', out=f'{MOUNTED_VOLUME}/fam_final_json.jsonl')
+    df = pd.read_json(f'{MOUNTED_VOLUME}/fam_final_json.jsonl', lines=True, chunksize=10000)
+    for c in df:
+        data = c.to_dict(orient='records')
+        for pat in data:
+            applicants, inventors = [], []
+            if pat.get('applicants'):
+                applicants = pat['applicants']
+            if pat.get('inventors'):
+                inventors = pat['inventors']
+            for app in applicants + inventors:
+                if isinstance(app.get('ids'), list):
+                    for id_ in app['ids']:
+                        if id_['type']=='idref':
+                            current_idref= id_['id'].replace('idref', '')
+                            if current_idref not in idrefs_from_patents:
+                                idrefs_from_patents[current_idref] = []
+                            pat_elt = {'id': pat['id'], 'year': pat['year']}
+                            title = pat['title']
+                            if title.get('en'):
+                                pat_elt['title'] = title['en']
+                            elif title.get('fr'):
+                                pat_elt['title'] = title['fr']
+                            if pat_elt not in idrefs_from_patents[current_idref]:
+                                idrefs_from_patents[current_idref].append(pat_elt)
+    return idrefs_from_patents
+
 def get_manual_matches():
     publi_author_dict = {}
     manual_infos = get_all_manual_matches().to_dict(orient='records')
@@ -166,6 +196,7 @@ def split_file(input_dir, file_to_split, nb_lines, split_prefix, output_dir, spl
 def export_scanr2(args):
     index_name = args.get('index')
     if args.get('new_idrefs', True):
+        input_patents = get_all_idrefs_from_patents()
         input_dict = get_vip()
         # writing output idrefs
         gobal_file_authors = f'{MOUNTED_VOLUME}scanr_authors/output_idrefs.csv'
@@ -179,6 +210,8 @@ def export_scanr2(args):
         os.system(f'rm -rf {MOUNTED_VOLUME}tmp.csv')
         df = pd.read_csv(gobal_file_authors, header=None, names=['idref'])
         idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
+        # adding patents
+        idrefs.update(input_patents.keys())
         # adding idrefs from vip
         idrefs.update(input_dict.keys())
         logger.debug(f'{len(idrefs)} idrefs after vip')
