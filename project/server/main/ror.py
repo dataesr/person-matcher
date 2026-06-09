@@ -78,6 +78,71 @@ def dump_ror_data() -> list:
     os.system(f'cd /upw_data/scanr/orga_ref && rm -rf ror.jsonl.gz && gzip -k ror.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/ror.jsonl.gz', destination=f'production/ror.jsonl.gz')
 
+def format_one_ror(e):
+    new_elt = {'id': e['id'].split('/')[-1]}
+    new_elt['externalIds'] = [{'id': e['id'].split('/')[-1], 'type': 'ror'}]
+    for k in e['external_ids']:
+        if isinstance(k.get('all'), list):
+            for g in k['all']:
+                new_k = {'id': g, 'type': k['type']}
+                if new_k not in new_elt['externalIds']:
+                    new_elt['externalIds'].append(new_k)
+    # startDate
+    if isinstance(e.get('established'), float) and e['established']>1:
+        new_elt['startDate'] = str(min(1000, int(e['established'])))+'-01-01T00:00:00' # es refuses date before 1000
+    if new_elt.get('startDate'):
+        new_elt['creationYear'] = e['established']
+    # status
+    if e.get('status')=='active':
+        new_elt['status']='active'
+    else:
+        new_elt['status'] = 'old'
+    # endDate
+    # name
+    new_elt['label'] = {}
+    for n in e.get('names', []):
+        if 'ror_display' in n.get('types', []):
+            new_elt['label']['default'] = n['value']
+        if 'label' in n.get('types', []) and 'lang' in n:
+            if n['lang'] in ['fr', 'en']:
+                new_elt['label'][n['lang']] = n['value']
+    # kind
+    if 'company' in e.get('types', []):
+        new_elt['kind'] = ['Secteur privé'] 
+    else:
+        new_elt['kind'] = ['Secteur public'] 
+    #address
+    new_elt['isFrench'] = False
+    address = {'main': True}
+    if len(e.get('locations', [])) > 0:
+        if isinstance(e['locations'][0].get('geonames_details'), dict):
+            geo_details = e['locations'][0].get('geonames_details')
+            if 'name' in geo_details:
+                address['city'] = geo_details['name']
+            if 'country_name' in geo_details:
+                address['country'] = geo_details['country_name']
+            if 'country_code' in geo_details:
+                address['iso2'] = geo_details['country_code']
+                if address.get('iso2') == 'FR':
+                    new_elt['isFrench'] = True
+            if 'lat' in geo_details and 'lng' in geo_details:
+                address['gps'] = {'lat': geo_details['lat'], 'lon': geo_details['lng']}
+    new_elt['address'] = [address]
+    # website
+    if e.get('links'):
+        new_elt['links'] = e['links']
+        for k in new_elt['links']:
+            k['url'] = k['value']
+    return new_elt
+   
+def get_ror_data_map():
+    ror_map = {}
+    df_ror = pd.read_json('/upw_data/scanr/orga_ref/ror.jsonl', lines=True)
+    for e in df_ror.to_dict(orient='records'):
+        new_elt = format_one_ror(e)
+        ror_map[new_elt['id']] = new_elt
+    return ror_map
+
 def format_ror(ror_ids, existing_rors):
     logger.debug('formatting ror data')
     input_id_set_keep = set([r.lower().strip() for r in ror_ids])
@@ -85,64 +150,11 @@ def format_ror(ror_ids, existing_rors):
     df_ror = pd.read_json('/upw_data/scanr/orga_ref/ror.jsonl', lines=True)
     ror_formatted = []
     for e in df_ror.to_dict(orient='records'):
-        new_elt = {'id': e['id'].split('/')[-1]}
+        new_elt = format_one_ror(e)
         if new_elt['id'] not in input_id_set_keep:
             continue
         if new_elt['id'] in input_id_set_skip:
             continue
-        new_elt['externalIds'] = [{'id': e['id'].split('/')[-1], 'type': 'ror'}]
-        for k in e['external_ids']:
-            if isinstance(k.get('all'), list):
-                for g in k['all']:
-                    new_k = {'id': g, 'type': k['type']}
-                    if new_k not in new_elt['externalIds']:
-                        new_elt['externalIds'].append(new_k)
-        # startDate
-        if isinstance(e.get('established'), float) and e['established']>1:
-            new_elt['startDate'] = str(min(1000, int(e['established'])))+'-01-01T00:00:00' # es refuses date before 1000
-        if new_elt.get('startDate'):
-            new_elt['creationYear'] = e['established']
-        # status
-        if e.get('status')=='active':
-            new_elt['status']='active'
-        else:
-            new_elt['status'] = 'old'
-        # endDate
-        # name
-        new_elt['label'] = {}
-        for n in e.get('names', []):
-            if 'ror_display' in n.get('types', []):
-                new_elt['label']['default'] = n['value']
-            if 'label' in n.get('types', []) and 'lang' in n:
-                if n['lang'] in ['fr', 'en']:
-                    new_elt['label'][n['lang']] = n['value']
-        # kind
-        if 'company' in e.get('types', []):
-            new_elt['kind'] = ['Secteur privé'] 
-        else:
-            new_elt['kind'] = ['Secteur public'] 
-        #address
-        new_elt['isFrench'] = False
-        address = {'main': True}
-        if len(e.get('locations', [])) > 0:
-            if isinstance(e['locations'][0].get('geonames_details'), dict):
-                geo_details = e['locations'][0].get('geonames_details')
-                if 'name' in geo_details:
-                    address['city'] = geo_details['name']
-                if 'country_name' in geo_details:
-                    address['country'] = geo_details['country_name']
-                if 'country_code' in geo_details:
-                    address['iso2'] = geo_details['country_code']
-                    if address.get('iso2') == 'FR':
-                        new_elt['isFrench'] = True
-                if 'lat' in geo_details and 'lng' in geo_details:
-                    address['gps'] = {'lat': geo_details['lat'], 'lon': geo_details['lng']}
-        new_elt['address'] = [address]
-        # website
-        if e.get('links'):
-            new_elt['links'] = e['links']
-            for k in new_elt['links']:
-                k['url'] = k['value']
         ror_formatted.append(new_elt)
     return ror_formatted
 

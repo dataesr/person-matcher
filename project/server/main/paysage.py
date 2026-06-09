@@ -168,7 +168,7 @@ def get_paysage_data():
     df_ror = df_paysage_id[df_paysage_id.id_type=='ror']
     return df_paysage_struct, df_siren, df_ror
 
-def dump_paysage_data():
+def dump_paysage_data_deprecated():
     logger.debug('### DUMP Paysage data')
     df_paysage_id = get_ods_data('fr-esr-paysage_structures_identifiants')
     df_paysage_struct = get_ods_data('structures-de-paysage-v2')
@@ -413,9 +413,9 @@ def get_parent(elt_id, paysage_map):
     return main_parents
 
 
-def get_correspondance_paysage():
+def get_correspondance_paysage(sirens, sirets):
     corresp = {}
-    siret_map = get_siret_map()
+    siret_map = get_siret_map(sirens, sirets)
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
     for e in df_paysage.to_dict(orient='records'):
         main_id = e['id']
@@ -465,7 +465,7 @@ def get_correspondance_paysage_deprecated():
     logger.debug(f'{len(corresp)} elts from paysage')
     return corresp
 
-def format_paysage(paysage_ids, sirens):
+def format_paysage(paysage_ids, sirens, ror_map):
     logger.debug('formatting paysage data')
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
     paysage_data = df_paysage.to_dict(orient='records')
@@ -488,17 +488,30 @@ def format_paysage(paysage_ids, sirens):
         if e['id'] in input_id_set:
             to_keep = True
         new_elt['externalIds'] = [{'id': e['id'], 'type': 'paysage'}]
+        has_rnsr = False
+        current_ror = None
         for k in e['identifiers']:
+            new_k = None
             if isinstance(k.get('value'), str) and k['type'] in ['siret', 'uai', 'grid', 'ror', 'ed', 'rnsr', 'wikidata']:
                 new_k = {'id': k['value'], 'type': k['type']}
                 if k['type'] == 'ed':
                     new_k['id'] = 'ED'+str(k['value'])
                 if k['id'][0:9] in sirens:
                     to_keep = True
-            if new_k not in new_elt['externalIds']:
+                if k['type'] == 'rnsr':
+                    has_rnsr = True
+                if k['type'] == 'ror':
+                    current_ror = k['value']
+            if new_k and new_k not in new_elt['externalIds']:
                 new_elt['externalIds'].append(new_k)
         if to_keep is False:
             continue
+        if has_rnsr:
+            logger.debug(f"HAS RNSR - exclude {e['id']}")
+            continue
+            # keep only rnsr data for rnsr
+        if current_ror and current_ror in ror_map:
+            new_elt['ror_infos'] = ror_map[current_ror]
         # startDate
         if isinstance(e.get('creationDate'), str):
             if len(e['creationDate'])==4:
@@ -620,17 +633,18 @@ def format_paysage(paysage_ids, sirens):
         paysage_formatted.append(new_elt)
     os.system(f'rm -rf /upw_data/scanr/orga_ref/paysage_formatted.jsonl')
     to_jsonl(paysage_formatted, f'/upw_data/scanr/orga_ref/paysage_formatted.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/paysage_formatted.jsonl', destination=f'production/paysage_formatted.jsonl')
     return paysage_formatted
 
-def get_siret_map():
-    try:
-        siren_info = pd.read_json('/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl', lines=True).to_dict(orient='records')
-        logger.debug(f'{len(siren_info)} sirens info loaded')
-    except:
-        siren_info = format_siren(siren_list=sirens, siret_list=sirets, existing_siren=[])
-        logger.debug(f'{len(siren_info)} sirens info downloaded')
-        os.system('rm -rf /upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
-        to_jsonl(siren_info, f'/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
+def get_siret_map(sirens, sirets):
+    #try:
+    #    siren_info = pd.read_json('/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl', lines=True).to_dict(orient='records')
+    #    logger.debug(f'{len(siren_info)} sirens info loaded')
+    #except:
+    siren_info = format_siren(siren_list=sirens, siret_list=sirets, existing_siren=[])
+    logger.debug(f'{len(siren_info)} sirens info downloaded')
+    os.system('rm -rf /upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
+    to_jsonl(siren_info, f'/upw_data/scanr/orga_ref/siren_info_for_paysage.jsonl')
     siret_map = {}
     for e in siren_info:
         for k in e.get('externalIds', []):

@@ -44,7 +44,7 @@ def get_data_from_idref():
         if orcid[0:2] != '00':
             continue
         data_orcid.append({'idref': idref, 'orcid': orcid, 'firstName': firstName, 'lastName': lastName})
-    #logger.debug(f'correspondance idref - orcid : {len(data_orcid)}')
+    logger.debug(f'correspondance idref - orcid : {len(data_orcid)}')
 
     data_id_hal = []
     #id_hal_matches = get_matches('https://data.archives-ouvertes.fr')
@@ -55,7 +55,7 @@ def get_data_from_idref():
         firstName = r['firstName']['value']
         lastName = r['lastName']['value']
         data_id_hal.append({'idref': idref, 'id_hal_s': id_hal_s, 'firstName': firstName, 'lastName': lastName})
-    #logger.debug(f'correspondance idref - id_hal : {len(data_id_hal)}')
+    logger.debug(f'correspondance idref - id_hal : {len(data_id_hal)}')
     df = pd.merge(pd.DataFrame(data_orcid), pd.DataFrame(data_id_hal), on=['idref', 'firstName', 'lastName'], how='outer')
     
     df['idref_abes'] = df['idref']
@@ -67,6 +67,7 @@ def get_data_from_idref():
             idref_dict[str(row.idref)]['orcid'] = str(row.orcid)
         if row.id_hal_s == row.id_hal_s:
             idref_dict[str(row.idref)]['id_hal'] = str(row.id_hal_s)
+    logger.debug(f"getting idref info done {len(idref_dict)} entries")
     return idref_dict
 
 @retry(delay=100, tries=10, logger=logger)
@@ -84,7 +85,7 @@ def get_aurehal(aurehal_type):
         if new_cursor == cursor:
             break
         cursor = new_cursor
-    #logger.debug(f'end {aurehal_type} aurehal')
+    logger.debug(f'end {aurehal_type} aurehal')
     return data
 
 def get_vip():

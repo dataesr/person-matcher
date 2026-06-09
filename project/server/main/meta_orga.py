@@ -5,8 +5,8 @@ import pickle
 from urllib.parse import urlencode
 from project.server.main.rnsr import dump_rnsr_data, format_rnsr, dump_rnsr_data_v2
 from project.server.main.siren import format_siren
-from project.server.main.paysage import format_paysage, dump_paysage_data, get_correspondance_paysage, dump_full_paysage, get_main_id_paysage
-from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror
+from project.server.main.paysage import format_paysage, get_correspondance_paysage, dump_full_paysage, get_main_id_paysage
+from project.server.main.ror import format_ror, dump_ror_data, get_grid2ror, get_ror_data_map
 from project.server.main.ods import get_ods_data, get_agreements, get_awards
 from project.server.main.logger import get_logger
 from project.server.main.utils_swift import download_object
@@ -138,21 +138,29 @@ def get_lists(grid2ror, corresp_paysage):
     return ans
 
 def get_meta_orga(args):
+    grid2ror = get_grid2ror()
+    #try:
+    #    lists_v0 = pickle.load(open('/upw_data/lists.pkl', 'rb'))
+    #except:
+    lists_v0 = get_lists(grid2ror, {})
+    sirens = lists_v0['siren']
+    sirets = lists_v0['siret']
+
     full_data = []
     
     #paysage
     #dump_paysage_data()
     dump_full_paysage()
     dump_ror_data()
-    corresp_paysage = get_correspondance_paysage()
+    corresp_paysage = get_correspondance_paysage(sirens, sirets)
+    ror_map = get_ror_data_map()
     #dump_rnsr_data(500)
     rnsr_args= {}
-    dump_rnsr_data_v2(args)
+    dump_rnsr_data_v2(args, ror_map)
 
-    grid2ror = get_grid2ror()
 
     #rnsr
-    rnsr_data = format_rnsr()
+    rnsr_data = format_rnsr(corresp_paysage)
     logger.debug(f'{len(rnsr_data)} elts from rnsr')
     full_data += rnsr_data
         
@@ -164,8 +172,7 @@ def get_meta_orga(args):
     #except:
     #    lists = get_lists(grid2ror)
     
-    paysage_data = format_paysage(lists['paysage'], lists['siren'])
-    to_jsonl(paysage_data, '/upw_data/scanr/orga_ref/paysage_data_formatted.jsonl')
+    paysage_data = format_paysage(lists['paysage'], lists['siren'], ror_map)
     logger.debug(f'{len(paysage_data)} elts from paysage')
     full_data += paysage_data
     existing_siren, existing_ror = [], []
@@ -178,7 +185,9 @@ def get_meta_orga(args):
     
     #siren
     siren_data = format_siren(lists['siren'], lists['siret'], existing_siren)
-    to_jsonl(siren_data, '/upw_data/scanr/orga_ref/siren_data_formatted.jsonl')
+    os.system(f"rm -rf /upw_data/scanr/orga_ref/siren_formatted.jsonl")
+    to_jsonl(siren_data, '/upw_data/scanr/orga_ref/siren_formatted.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/siren_formatted.jsonl', destination=f'production/siren_formatted.jsonl')
     logger.debug(f'{len(siren_data)} elts from siren')
     full_data += siren_data
     

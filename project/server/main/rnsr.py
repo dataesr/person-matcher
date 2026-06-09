@@ -50,6 +50,7 @@ def get_one_rnsr(rnsr):
     return r.json()['data']
 
 def get_all_rnsr_data():
+    logger.debug('DUMP RNSR DATA')
     data = []
     all_rnsr = get_all_rnsr_ids()
     for ix, e in enumerate(all_rnsr):
@@ -59,6 +60,7 @@ def get_all_rnsr_data():
     pd.DataFrame(data).to_json('/upw_data/scanr/orga_ref/rnsr_extract.jsonl', lines=True, orient='records')
 
 def dump_rnsr_data(nb_per_page=500):
+    #DEPRECATED
     logger.debug('### DUMP RNSR data')
     db = 'organizations'
     collection = 'scanr'
@@ -97,7 +99,7 @@ def dump_rnsr_data(nb_per_page=500):
     os.system(f'cd /upw_data/scanr/orga_ref && rm -rf rnsr.jsonl.gz && gzip -k rnsr.jsonl')
     upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr.jsonl.gz', destination=f'production/rnsr.jsonl.gz')
 
-def transform(elt, leaders_dict, pids_from_idref):
+def transform(elt, leaders_dict, pids_from_idref, ror_map):
     today = str(datetime.today())[0:10]
     new = {}
     new['id'] = elt['id']
@@ -133,9 +135,14 @@ def transform(elt, leaders_dict, pids_from_idref):
         new['kind'] = [elt['type']]
     new['nature'] = 'Unite propre'
     new['externalIds'] =  [{'id': new['id'], 'type': 'rnsr'}]
+    current_ror = None
     if new['id'] in pids_from_idref:
         for pid in pids_from_idref[new['id']]:
             new['externalIds'].append(pid)
+            if pid.get('type') == 'ror':
+                current_ror = pid['id']
+    if current_ror and current_ror in ror_map:
+        new['ror_infos'] = ror_map[current_ror]
     if isinstance(elt.get('code_numbers'), list):
         for c in elt['code_numbers']:
             new['externalIds'].append({'id': c, 'type': 'label_numero'})
@@ -247,7 +254,7 @@ def transform(elt, leaders_dict, pids_from_idref):
             
     return new
 
-def dump_rnsr_data_v2(args):
+def dump_rnsr_data_v2(args, ror_map):
     if args.get('update_rnsr_extract', False):
         get_all_rnsr_data()
     leaders_dict = get_leaders()
@@ -264,15 +271,16 @@ def dump_rnsr_data_v2(args):
                     logger.debug(elt)
                     logger.debug('il faut compléter le fichier rnsr_key.jsonl')
     for k in raw_rnsr:
-        n = transform(k, leaders_dict, pids_from_idref)
+        n = transform(k, leaders_dict, pids_from_idref, ror_map)
         data.append(n)
     os.system(f'rm -rf /upw_data/scanr/orga_ref/rnsr-v2.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr-v2.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr-v2.jsonl', destination=f'production/rnsr-v2.jsonl')
 
-def format_rnsr():
+def format_rnsr(corresp):
     logger.debug('formatting RNSR data')
     df = pd.read_json(f'/upw_data/scanr/orga_ref/rnsr-v2.jsonl', lines=True)
-    corresp = get_correspondance_paysage()
+    #corresp = get_correspondance_paysage(sirens, sirets)
     data = []
     for e in df.to_dict(orient='records'):
         for g in ['institutions', 'parents', 'predecessors', 'relations', 'spinoff']:
@@ -288,5 +296,6 @@ def format_rnsr():
         data.append(e)
     os.system('cd /upw_data/scanr/orga_ref/ && rm -rf rnsr_formatted.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr_formatted.jsonl')
+    upload_object(container='scanr-data', source = f'/upw_data/scanr/orga_ref/rnsr_formatted.jsonl', destination=f'production/rnsr_formatted.jsonl')
     return data
         

@@ -231,7 +231,7 @@ def export_scanr2(args):
         input_dict = pickle.load(open('/upw_data/idref_dict.pkl', 'rb'))
         assert(isinstance(author_ix, int))
         df = pd.read_csv(f'{MOUNTED_VOLUME}/scanr_authors/split/authors-split_{author_ix}.csv', header=None, names=['idref'])
-        idrefs = set([k.replace('idref', '') for k in df.idref.tolist()])
+        idrefs = set([k.replace('idref', '') for k in df.idref.tolist() if isinstance(k, str) and len(k)>0])
         nbTotalIdrefs = len(idrefs)
         logger.debug(f'{len(idrefs)} idrefs')
         ix = 0
@@ -405,8 +405,10 @@ def export_one_person(idref, publications, input_dict, orga_map, ix, nbTotalIdre
         person['affiliations'] = affiliations
     for aff in affiliations:
         if aff.get('endDate') and (CURRENT_YEAR - int(aff['endDate'][0:4])) <= 3:
-            if "Structure de recherche" in aff.get('structure', {}).get('kind', []):
-                recent_affiliations.append(aff)
+            if aff.get('structure') and isinstance(aff['structure'].get('kind'), list):
+                if "Structure de recherche" in aff.get('structure', {}).get('kind', []):
+                    if isinstance(aff.get('publicationsCount'), int) and aff.get('publicationsCount') > 4:
+                        recent_affiliations.append(aff)
     if recent_affiliations:
         person['recentAffiliations'] = sorted(recent_affiliations, key=lambda a: a['publicationsCount'], reverse=True)[0:5]
     if isinstance(prizes, list):
