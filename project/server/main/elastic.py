@@ -134,7 +134,7 @@ def reset_index_scanr(index: str) -> None:
     for f in ['lastName', 'fullName', 'firstName', 'leaders.firstName', 'leaders.lastName', 
              'acronym.en', 'acronym.fr', 'acronym.default', 'keywords.en', 'keywords.fr', 'keywords.default', 'domains.label.default',
             'participants.label.default',
-            'inventors.name', 'applicants.name']:
+            'inventors.name', 'applicants.name', 'address.city', 'address.country']:
         mappings['properties'][f] = { 
                 'type': 'text',
                 'analyzer': 'light',
@@ -144,7 +144,7 @@ def reset_index_scanr(index: str) -> None:
                     }
                 }
             }
-    for f in ['address.address', 'address.city', 'address.country', 'description.fr', 'description.en', 'description.default', 
+    for f in ['address.address', 'description.fr', 'description.en', 'description.default', 
             'ai_description.description.fr', 'ai_description.description.en', 'ai_description.description.default']: 
         mappings['properties'][f] = { 
                 'type': 'text',

@@ -492,7 +492,7 @@ def format_paysage(paysage_ids, sirens, ror_map):
         current_ror = None
         for k in e['identifiers']:
             new_k = None
-            if isinstance(k.get('value'), str) and k['type'] in ['siret', 'uai', 'grid', 'ror', 'ed', 'rnsr', 'wikidata']:
+            if isinstance(k.get('value'), str) and k['type'] in ['siret', 'uai', 'grid', 'ror', 'ed', 'rnsr', 'wikidata', 'idref']:
                 new_k = {'id': k['value'], 'type': k['type']}
                 if k['type'] == 'ed':
                     new_k['id'] = 'ED'+str(k['value'])
