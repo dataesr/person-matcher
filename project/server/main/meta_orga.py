@@ -137,7 +137,7 @@ def get_lists(grid2ror, corresp_paysage):
     pickle.dump(ans, open('/upw_data/lists.pkl', 'wb'))
     return ans
 
-def get_meta_orga(args):
+def get_sirens_sirets():
     grid2ror = get_grid2ror()
     #try:
     #    lists_v0 = pickle.load(open('/upw_data/lists.pkl', 'rb'))
@@ -145,7 +145,11 @@ def get_meta_orga(args):
     lists_v0 = get_lists(grid2ror, {})
     sirens = lists_v0['siren']
     sirets = lists_v0['siret']
+    return sirens, sirets
 
+def get_meta_orga(args):
+
+    sirens, sirets = get_sirens_sirets()
     full_data = []
     
     #paysage

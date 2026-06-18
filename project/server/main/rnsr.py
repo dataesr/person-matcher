@@ -22,6 +22,8 @@ from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
 
+# TODO recuperer etab reference à partir dump rnsr_dump_REPSTRUCT_REFERENT_20260416_part-0.csv.gz match rnsr / rnsr_key
+
 DATAESR_URL = os.getenv('DATAESR_URL')
 BASE_URL_RNSR = f'{DATAESR_URL}/fetchers/rnsr'
 

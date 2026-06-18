@@ -10,6 +10,7 @@ from project.server.main.scanr2 import get_publications_for_project, get_domains
 from project.server.main.export_data_without_tunnel import dump_from_http
 from project.server.main.paysage import get_correspondance_paysage, get_main_id_paysage, build_successeur_map, get_successeur
 from project.server.main.entity_fishing import get_entity_fishing
+from project.server.main.meta_orga import get_sirens_sirets
 from project.server.main.mistral import get_mistral_answer
 
 import pymongo
@@ -73,7 +74,8 @@ def load_projects(args):
         os.system('rm -rf /upw_data/scanr/projects_denormalized.jsonl')
         os.system('rm -rf /upw_data/scanr/participations_denormalized.jsonl')
         projects = [p for p in projects if p.get('type') not in ['Casdar']]
-        corresp_paysage = get_correspondance_paysage()
+        sirens, sirets = get_sirens_sirets()
+        corresp_paysage = get_correspondance_paysage(sirens, sirets)
         successeur_map = build_successeur_map()
         for ix, p in enumerate(projects):
             if ix % 100 == 0:
