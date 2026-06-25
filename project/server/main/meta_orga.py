@@ -149,6 +149,7 @@ def get_sirens_sirets():
 
 def get_meta_orga(args):
 
+    grid2ror = get_grid2ror()
     sirens, sirets = get_sirens_sirets()
     full_data = []
     
