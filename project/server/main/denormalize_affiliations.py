@@ -1,8 +1,5 @@
 import pandas as pd
-import requests
-from project.server.main.utils import chunks, to_jsonl, to_json, EXCLUDED_ID, get_main_id, get_default_name
-#from project.server.main.paysage import get_typologie
-#from project.server.main.regions import get_region
+from project.server.main.utils import EXCLUDED_ID, get_default_name, get_main_id
 from project.server.main.logger import get_logger
 
 logger = get_logger(__name__)
@@ -11,7 +8,6 @@ def get_correspondance():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations-v2.jsonl.gz'
     df = pd.read_json(url, lines=True)
     df = df[~df.id.isin(EXCLUDED_ID)]
-    #df = df.set_index('id')
     data = df.to_dict(orient='records')
     correspondance = {}
     raw_rnsrs = data
@@ -62,14 +58,6 @@ def get_name_by_lang(e, lang):
     if isinstance(e.get(lang), str):
         return e[lang]
     return None
-
-def compute_is_french_deprecated(elt_id, mainAddress):
-    isFrench = True
-    if 'grid' in elt_id or 'ror' in elt_id:
-        isFrench = False
-        if isinstance(mainAddress, dict) and isinstance(mainAddress.get('country'), str) and mainAddress['country'].lower().strip() == 'france':
-            isFrench = True
-    return isFrench
 
 def get_orga_list():
     url = 'https://scanr-data.s3.gra.io.cloud.ovh.net/production/organizations-v2.jsonl.gz'

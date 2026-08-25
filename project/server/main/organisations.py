@@ -141,7 +141,6 @@ def load_orga(args):
                 web_content = get_html_from_crawler(current_id = current_id, get_zip = get_zip_from_crawler)
                 if isinstance(web_content, str) and len(web_content)>10:
                     new_p['web_content'] = web_content
-            mainAddress = get_main_address(p.get('address'))
             for f in ['parents', 'institutions', 'relations', 'incubateurs', 'startup_links']:
                 if current_id in reverse_relation[f]:
                     new_p[f'{f[0:-1]}Of'] = reverse_relation[f][current_id]
