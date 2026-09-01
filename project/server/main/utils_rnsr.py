@@ -27,6 +27,18 @@ for e in df_city.to_dict(orient='records'):
         logger.debug(f"no code in file for {city_normalized}")
 #cities_norm = {normalize(city): city for city in cities}
 
+address_iso3_dict = {}
+df_addresses_iso3 = pd.read_csv('addresses_bizarres_iso3.csv')
+df_addresses_iso3['address_norm'] = df_addresses_iso3.address.apply(lambda x:normalize(x))
+for e in df_addresses_iso3.to_dict(orient='records'):
+    address_iso3_dict[e['address_norm']] = e['iso3'].strip()
+
+def get_iso3(text):
+    text_norm = normalize(text)
+    if text_norm in address_iso3_dict:
+        return address_iso3_dict[text_norm]
+    return 'FRA'
+
 def get_postal_code(text_norm):
     # Extraction code postal
     candidates = []
@@ -96,10 +108,13 @@ def parse_address(text):
     address = re.sub(r'\bCEDEX\b.*', '', address)  # retire CEDEX
     address = re.sub(r'[ ,]+', ' ', address).strip()
 
+    iso3 = get_iso3(text_norm)
+
     return {
         'main': True,
         'address': text,
         'address_detected': address.title(),
         'city': city_found,
-        'postcode': postcode
+        'postcode': postcode,
+        'iso3': iso3
     }

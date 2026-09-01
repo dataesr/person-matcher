@@ -8,6 +8,7 @@ from pyproj import Transformer
 from project.server.main.ods import get_ods_data
 from project.server.main.logger import get_logger
 from project.server.main.utils import EXCLUDED_ID
+from project.server.main.cog import COG_TO_ISO3
 
 logger = get_logger(__name__)
 
@@ -50,7 +51,9 @@ ET_COLS = [
     "codePostalEtablissement",
     "libelleCommuneEtablissement",
     "coordonneeLambertAbscisseEtablissement",
-    "coordonneeLambertOrdonneeEtablissement"
+    "coordonneeLambertOrdonneeEtablissement",
+    "codePaysEtrangerEtablissement",
+    "libellePaysEtrangerEtablissement"
 ]
 
 UL_HISTO_COLS = [
@@ -166,10 +169,18 @@ def format_siren(siren_list, siret_list, existing_siren=[]):
             assert(isinstance(new_elt['label']['default'], str))
         #address
         address = {'main': True}
-        new_elt['isFrench'] = True
+        if isinstance(e.get('codePaysEtrangerEtablissement'), str):
+            assert(e['codePaysEtrangerEtablissement'] in COG_TO_ISO3)
+            new_elt['isFrench'] = False
+            address['iso3'] = COG_TO_ISO3[e['codePaysEtrangerEtablissement']]
+            address['country'] = e['libellePaysEtrangerEtablissement'].capitalize()
+        else:
+            new_elt['isFrench'] = True
+            address['country'] = 'France'
+            address['iso2'] = 'FR'
+            address['iso3'] = 'FRA'
         if isinstance(e.get('libelleCommuneEtablissement'), str):
             address['city'] = e['libelleCommuneEtablissement']
-            address['country'] = 'France'
         full_add = f"{e['numeroVoieEtablissement']} {e['typeVoieEtablissement']} {e['libelleVoieEtablissement']}".strip()
         if full_add:
             address['address'] = full_add.replace('None', '').replace('  ', ' ').strip()

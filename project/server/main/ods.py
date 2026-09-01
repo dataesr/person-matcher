@@ -12,8 +12,12 @@ ODS_API_KEY = os.getenv('ODS_API_KEY')
 @retry(delay=100, tries=5, logger=logger)
 def get_ods_data(key):
     logger.debug(f'getting ods data {key}')
-    current_df = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/{key}/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
-    return current_df
+    try:
+        current_df = pd.read_csv(f'https://data.enseignementsup-recherche.gouv.fr/explore/dataset/{key}/download/?format=csv&apikey={ODS_API_KEY}', sep=';')
+        return current_df
+    except:
+        logger.debug('failed')
+        return pd.DataFrame([])
 
 def get_agreements(corresp):
     agreements_dict = {}

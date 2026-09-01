@@ -465,8 +465,30 @@ def get_correspondance_paysage_deprecated():
     logger.debug(f'{len(corresp)} elts from paysage')
     return corresp
 
+
+def get_super_orga(): # EPE
+    super_parents_dict, super_parents_children = {}, {}
+    df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
+    for e in df_paysage.to_dict(orient='records'):
+        relations = e.get('relations', [])
+        for r in relations:
+            if isinstance(r.get('relationType'), dict) and isinstance(r['relationType'].get('name'), str) and r['relationType']['name']=='Établissement-composante':
+                child = r['relatedObjectId']
+                if child in super_parents_dict:
+                    assert(super_parents_dict[child] == r['resourceId'])
+                    #print(f"{child} already there ? with {super_parents_dict[child]}")
+                    #print(f"now {r['resourceId']}")
+                #assert(child not in super_parents_dict)
+                super_parents_dict[child] = r['resourceId']
+                if r['resourceId'] not in super_parents_children:
+                    super_parents_children[r['resourceId']] = []
+                if child not in super_parents_children[r['resourceId']]:
+                    super_parents_children[r['resourceId']].append(child)
+    return super_parents_dict, super_parents_children
+
 def format_paysage(paysage_ids, sirens, ror_map):
     logger.debug('formatting paysage data')
+    super_parents_dict, super_parents_children = get_super_orga()
     df_paysage = pd.read_json('/upw_data/scanr/orga_ref/paysage_dump.jsonl', lines=True)
     paysage_data = df_paysage.to_dict(orient='records')
     paysage_map = {}
@@ -484,6 +506,10 @@ def format_paysage(paysage_ids, sirens, ror_map):
     paysage_formatted = []
     for e in paysage_data:
         new_elt = {'id': e['id']}
+        e['is_super_organization'] = False
+        if e['id'] in super_parents_children:
+            e['is_super_organization'] = True
+            e['super_organization_children'] = super_parents_children[e['id']]
         to_keep = False
         if e['id'] in input_id_set:
             to_keep = True

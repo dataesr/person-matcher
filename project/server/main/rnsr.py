@@ -295,6 +295,8 @@ def format_rnsr(corresp):
                             logger.debug(f'tutelle identification to check {k}')
         #e['categories'] = [{'id': 'z367d', 'name': 'Structure de recherche'}]
         e['categories'] = ['Structure de recherche']
+        if not isinstance(e.get('address'), list):
+            e['address'] = [{'country': 'France', 'iso2': 'FR', 'iso3': 'FRA'}] # pas d'adresse indiquée, pays FR par défaut
         data.append(e)
     os.system('cd /upw_data/scanr/orga_ref/ && rm -rf rnsr_formatted.jsonl')
     to_jsonl(data, f'/upw_data/scanr/orga_ref/rnsr_formatted.jsonl')

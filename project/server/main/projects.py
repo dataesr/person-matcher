@@ -259,7 +259,7 @@ def load_scanr_projects(scanr_output_file_denormalized, index_name, chunksize=50
     refresh_index(index_name)
 
 def get_participations_simple(project, orga_map, successeur_map):
-    FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key']
+    FIELDS_IN_PART_STRUCT = ['id', 'id_name', 'id_name_default', 'kind', 'country', 'label', 'acronym', 'status', 'isFrench', 'main_category', 'is_main_parent', 'panel_erc', 'institutions', 'typologie_1', 'typologie_2', 'encoded_key', 'is_super_organization', 'super_organization_children']
     FIELDS_IN_PART_PROJ = ['role', 'funding', 'id']
     participations = []
     if isinstance(project.get('participants', []), list):

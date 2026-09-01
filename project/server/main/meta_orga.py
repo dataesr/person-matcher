@@ -20,6 +20,41 @@ logger = get_logger(__name__)
 
 MOUNTED_VOLUME = '/upw_data/'
 
+def get_country_ref():
+    df_country_ref = get_ods_data('curiexplore-pays')
+    country_iso3_name = {}
+    iso2_iso3 = {}
+    if len(df_country_ref)==0:
+        return {'country_iso3_name': country_iso3_name, 'iso2_iso3': iso2_iso3}
+    for e in df_country_ref.to_dict(orient='records'):
+        iso2, iso3 = None, None
+        if isinstance(e['iso3'], str) and (len(e['iso3']) == 3):
+            assert(e['iso3'] not in country_iso3_name)
+            country_iso3_name[e['iso3']] = e['name_fr']
+            iso3 = e['iso3']
+        if isinstance(e['iso2'], str):
+            assert(len(e['iso2']) == 2)
+            assert(e['iso2'] not in country_iso3_name)
+            country_iso3_name[e['iso2']] = e['name_fr']
+            iso2 = e['iso2']
+        if iso3 and iso2:
+            iso2_iso3[iso2] = iso3
+    if 'KOS' in country_iso3_name:
+        country_iso3_name['XKX'] = country_iso3_name['KOS']
+    
+    country_iso3_name['NCL'] = 'Nouvelle-Calédonie'
+    country_iso3_name['NC'] = country_iso3_name['NCL']
+    iso2_iso3['NC'] = 'NCL'
+    
+    if 'NAM' in country_iso3_name:
+        country_iso3_name['NA'] = country_iso3_name['NAM']
+    iso2_iso3['NA'] = 'NAM'
+    return {'country_iso3_name': country_iso3_name, 'iso2_iso3': iso2_iso3}
+
+country_data = get_country_ref()
+country_iso3_name = country_data['country_iso3_name']
+iso2_iso3 = country_data['iso2_iso3']
+
 def get_panel_erc(elt):
     if isinstance(elt.get('activities'), list):
         for a in elt['activities']:
@@ -214,10 +249,16 @@ def get_meta_orga(args):
                 org[f] = remove_duplicates(org[f], org['id'])
         addresses = org.get('address')
         if isinstance(addresses, list):
-            for address in addresses:
+            for a in addresses:
                 for f in ['country', 'city']:
-                    if isinstance(address.get(f), str):
-                        address[f] = address[f].capitalize()
+                    if isinstance(a.get(f), str):
+                        a[f] = a[f].capitalize()
+                if not isinstance(a.get('iso3'), str) and isinstance(a.get('iso2'), str):
+                    a['iso3'] = iso2_iso3[a['iso2']]
+                if a.get('country') == 'France':
+                    a['iso3'] = 'FRA'
+                if a['iso3'] in country_iso3_name:
+                    a['coutry'] = country_iso3_name[a['iso3']]
         extIdsToAdd = []
         if not isinstance(org.get('externalIds'), list):
             e['externalIds'] = []
