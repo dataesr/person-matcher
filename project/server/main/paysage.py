@@ -473,17 +473,18 @@ def get_super_orga(): # EPE
         relations = e.get('relations', [])
         for r in relations:
             if isinstance(r.get('relationType'), dict) and isinstance(r['relationType'].get('name'), str) and r['relationType']['name']=='Établissement-composante':
-                child = r['relatedObjectId']
-                if child in super_parents_dict:
-                    assert(super_parents_dict[child] == r['resourceId'])
+                child_id = r['relatedObjectId']
+                if child_id in super_parents_dict:
+                    assert(super_parents_dict[child_id] == r['resourceId'])
                     #print(f"{child} already there ? with {super_parents_dict[child]}")
                     #print(f"now {r['resourceId']}")
                 #assert(child not in super_parents_dict)
-                super_parents_dict[child] = r['resourceId']
+                super_parents_dict[child_id] = r['resourceId']
                 if r['resourceId'] not in super_parents_children:
                     super_parents_children[r['resourceId']] = []
-                if child not in super_parents_children[r['resourceId']]:
-                    super_parents_children[r['resourceId']].append(child)
+                child_ids_already_there = [k['id'] for k in super_parents_children[r['resourceId']]]
+                if (child_id not in child_ids_already_there) and 'relatedObject' in r:
+                    super_parents_children[r['resourceId']].append({'id': child_id, 'displayName': r['relatedObject']['displayName']})
     return super_parents_dict, super_parents_children
 
 def format_paysage(paysage_ids, sirens, ror_map):
@@ -506,10 +507,10 @@ def format_paysage(paysage_ids, sirens, ror_map):
     paysage_formatted = []
     for e in paysage_data:
         new_elt = {'id': e['id']}
-        e['is_super_organization'] = False
+        new_elt['is_super_organization'] = False
         if e['id'] in super_parents_children:
-            e['is_super_organization'] = True
-            e['super_organization_children'] = super_parents_children[e['id']]
+            new_elt['is_super_organization'] = True
+            new_elt['super_organization_children'] = super_parents_children[e['id']]
         to_keep = False
         if e['id'] in input_id_set:
             to_keep = True

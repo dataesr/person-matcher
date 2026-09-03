@@ -191,7 +191,10 @@ def get_meta_orga(args):
     #paysage
     #dump_paysage_data()
     dump_full_paysage()
-    dump_ror_data()
+    try:
+        dump_ror_data()
+    except:
+        logger.debug('!!! ERROR in getting ROR data !!!')
     corresp_paysage = get_correspondance_paysage(sirens, sirets)
     ror_map = get_ror_data_map()
     #dump_rnsr_data(500)
@@ -257,8 +260,10 @@ def get_meta_orga(args):
                     a['iso3'] = iso2_iso3[a['iso2']]
                 if a.get('country') == 'France':
                     a['iso3'] = 'FRA'
-                if a['iso3'] in country_iso3_name:
+                if isinstance(a.get('iso3'), str) and a['iso3'] in country_iso3_name:
                     a['coutry'] = country_iso3_name[a['iso3']]
+                else:
+                    logger.debug(f"no ISO3 for {a} in {e['id']}")
         extIdsToAdd = []
         if not isinstance(org.get('externalIds'), list):
             e['externalIds'] = []
