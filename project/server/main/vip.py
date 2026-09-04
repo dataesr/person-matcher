@@ -173,6 +173,7 @@ def get_vip():
     logger.debug(f'{len(idref_dict)} vip idref retrieved')
     return idref_dict
 
+@retry(delay=100, tries=10, logger=logger)
 def get_rnsr_pids_from_idref():
     query = """
     SELECT *
